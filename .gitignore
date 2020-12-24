@@ -1,0 +1,8 @@
+venv
+mmdetection
+models
+images
+output
+.idea/
+__pycache__/
+paddle_detector/inference/*
