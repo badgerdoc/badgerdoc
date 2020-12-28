@@ -13,4 +13,4 @@ wget --output-document $MODELS_DIR/cascadetabnet_config.py https://gist.githubus
 # Demo image
 wget --output-document $IMG_DIR/demo.png https://raw.githubusercontent.com/DevashishPrasad/CascadeTabNet/master/Demo/demo.png
 
-cd paddle_detector && ./download.sh
+./paddleocr_download.sh
