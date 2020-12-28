@@ -11,7 +11,6 @@ setup(
         'torch==1.7.0',
         'torchvision==0.8.1',
         'pillow==7.2.0',
-        'mmcv-full==1.2.4',
         'click==7.1.2',
         'scipy==1.5.4',
         'pdf2image==1.14.0',
