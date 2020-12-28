@@ -1,27 +1,27 @@
+import json
 import logging
 import sys
-import json
+from pathlib import Path
 from typing import List, Optional
 
 import click
-from pathlib import Path
-
 import cv2
 import numpy
 from tesserocr import PSM
 
-import numpy as np
-from bordered_tables.bordered_tables_detection import detect_tables_on_page
-from bordered_tables.models import InferenceTable, Cell, TableHeadered, Image, BorderBox, Row, Column, Table, TextField, \
-    Page
-from pdf_reader.pdf_reader import convert_pdf_to_images, extract_text_to_json, extract_text, \
-    poppler_text_field_to_text_field
-from semi_bordered import parse_semi_bordered, boxes_to_image_obj
-from tesseract.extractor import TextExtractor
-from tesseract.tesseract_manager import ocr_pages_in_path
-from inference import batch_, draw_, DEFAULT_THRESHOLD, inference_batch
-from text_cells_matcher.text_cells_matcher import match_table_text, match_cells_text_fields
-from utils import has_image_extension
+from .bordered_tables.bordered_tables_detection import detect_tables_on_page
+from .bordered_tables.models import (
+    InferenceTable, Cell, TableHeadered, BorderBox, Row, Table, TextField, Page
+)
+from .inference import batch_, draw_, DEFAULT_THRESHOLD, inference_batch
+from .pdf_reader.pdf_reader import (
+    convert_pdf_to_images, extract_text_to_json, extract_text, poppler_text_field_to_text_field,
+)
+from .semi_bordered import parse_semi_bordered
+from .tesseract.extractor import TextExtractor
+from .tesseract.tesseract_manager import ocr_pages_in_path
+from .text_cells_matcher.text_cells_matcher import match_table_text, match_cells_text_fields
+from .utils import has_image_extension
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +48,7 @@ def single(pdf_path, output_path):
     text_path = extract_text_to_json(input_pdf, out_path)
     ocr_pages_in_path(images_path, out_path.joinpath(input_pdf.name))
     batch_(str(images_path.absolute()), str(out_path.joinpath(input_pdf.name).absolute()),
-          'models/epoch_36_mmd_v2.pth', 'models/cascadetabnet_config.py', DEFAULT_THRESHOLD, None)
+           'models/epoch_36_mmd_v2.pth', 'models/cascadetabnet_config.py', DEFAULT_THRESHOLD, None)
     draw_(
         str(images_path.absolute()),
         str(out_path.joinpath(input_pdf.name).joinpath('marked').absolute()),
@@ -150,21 +150,29 @@ def merge_closest_text_fields(text_fields: List[TextField]):
 
 def cmp_to_key(mycmp):
     """Convert a cmp= function into a key= function"""
+
     class K:
         def __init__(self, obj, *args):
             self.obj = obj
+
         def __lt__(self, other):
             return mycmp(self.obj, other.obj) < 0
+
         def __gt__(self, other):
             return mycmp(self.obj, other.obj) > 0
+
         def __eq__(self, other):
             return mycmp(self.obj, other.obj) == 0
+
         def __le__(self, other):
             return mycmp(self.obj, other.obj) <= 0
+
         def __ge__(self, other):
             return mycmp(self.obj, other.obj) >= 0
+
         def __ne__(self, other):
             return mycmp(self.obj, other.obj) != 0
+
     return K
 
 
@@ -174,7 +182,7 @@ def extract_table_from_inference(inf_table: InferenceTable, header_box: Optional
 
     def compare(cell_1: Cell, cell_2: Cell):
         if cell_2.bottom_right_y - cell_1.top_left_y > 0 and \
-                cell_1.bottom_right_y - cell_2.top_left_y > 0 and\
+                cell_1.bottom_right_y - cell_2.top_left_y > 0 and \
                 min(cell_2.bottom_right_y - cell_1.top_left_y, cell_1.bottom_right_y - cell_2.top_left_y) \
                 / min(cell_2.height, cell_1.height) > 0.4:
             return cell_1.top_left_x - cell_2.top_left_x
@@ -202,7 +210,7 @@ def extract_table_from_inference(inf_table: InferenceTable, header_box: Optional
     )
     for cell in sorted(inf_table.tags, key=cmp_to_key(compare)):
         if current_bottom_y - cell.top_left_y > 0 and \
-                cell.bottom_right_y - current_top_y > 0 and\
+                cell.bottom_right_y - current_top_y > 0 and \
                 min(cell.bottom_right_y - current_top_y, current_bottom_y - cell.top_left_y) \
                 / min(cell.height, current_bottom_y - current_top_y) > 0.4:
             current_row.add(cell)
@@ -246,7 +254,8 @@ def table_to_json(table: Table):
     for row in table.rows:
         cells = []
         for cell in row.objs:
-            text = " ".join([text_box.text for text_box in sorted(cell.text_boxes, key=lambda x: (x.bbox.top_left_y, x.bbox.top_left_x))])
+            text = " ".join([text_box.text for text_box in
+                             sorted(cell.text_boxes, key=lambda x: (x.bbox.top_left_y, x.bbox.top_left_x))])
             cells.append({
                 "bbox": cell.box,
                 "text": text
@@ -264,9 +273,9 @@ def table_to_json(table: Table):
         bottom = []
         other = []
         for cell in h_cells:
-            if top_y-10 < cell.top_left_y < top_y+10:
+            if top_y - 10 < cell.top_left_y < top_y + 10:
                 top.append(cell)
-            elif bottom_y-10 < cell.top_left_y < bottom_y+10:
+            elif bottom_y - 10 < cell.top_left_y < bottom_y + 10:
                 bottom.append(cell)
             else:
                 other.append(cell)
@@ -280,16 +289,19 @@ def table_to_json(table: Table):
                 if end >= len(top):
                     end = len(top)
                 top_ch = top[i * chunk:end]
-                t_text = " ".join([text_box.text for text_box in sorted(t.text_boxes, key=lambda x: (x.bbox.top_left_y, x.bbox.top_left_x))])
+                t_text = " ".join([text_box.text for text_box in
+                                   sorted(t.text_boxes, key=lambda x: (x.bbox.top_left_y, x.bbox.top_left_x))])
                 for ce in top_ch:
-                    text = t_text + "->" + " ".join([text_box.text for text_box in sorted(ce.text_boxes, key=lambda x: (x.bbox.top_left_y, x.bbox.top_left_x))])
+                    text = t_text + "->" + " ".join([text_box.text for text_box in sorted(ce.text_boxes, key=lambda x: (
+                        x.bbox.top_left_y, x.bbox.top_left_x))])
                     if text:
                         head.append({
                             "bbox": ce.box,
                             "text": text
                         })
         for ce in other:
-            text = " ".join([text_box.text for text_box in sorted(ce.text_boxes, key=lambda x: (x.bbox.top_left_y, x.bbox.top_left_x))])
+            text = " ".join([text_box.text for text_box in
+                             sorted(ce.text_boxes, key=lambda x: (x.bbox.top_left_y, x.bbox.top_left_x))])
             if head:
                 head.append({
                     "bbox": ce.box,
@@ -318,10 +330,10 @@ def draw_inference(img: numpy.ndarray, inference_result: List[InferenceTable]):
                       3)
         cv2.putText(img,
                     f"{inference_table.label}: {inference_table.confidence}",
-                    (inference_table.bbox[0], inference_table.bbox[1]-10),
+                    (inference_table.bbox[0], inference_table.bbox[1] - 10),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     0.9,
-                    (255,0,0),
+                    (255, 0, 0),
                     2)
         for box in inference_table.tags:
             cv2.rectangle(img,
@@ -435,9 +447,11 @@ def full(pdf_path, output_path):
                     if semi_border_score >= mask_rcnn_count_matches and cells_count > len(inf_table.tags):
                         inf_tables.append((semi_border_score, semi_border))
                     else:
-                        inf_tables.append((mask_rcnn_count_matches, extract_table_from_inference(inf_table, header_cell, not_matched)))
+                        inf_tables.append((mask_rcnn_count_matches,
+                                           extract_table_from_inference(inf_table, header_cell, not_matched)))
                 else:
-                    inf_tables.append((mask_rcnn_count_matches, extract_table_from_inference(inf_table, None, not_matched)))
+                    inf_tables.append(
+                        (mask_rcnn_count_matches, extract_table_from_inference(inf_table, None, not_matched)))
             else:
                 inf_tables.append((mask_rcnn_count_matches, extract_table_from_inference(inf_table, None, not_matched)))
 

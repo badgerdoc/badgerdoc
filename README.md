@@ -8,7 +8,7 @@
 
 Run pipeline on single pdf document
 
-`python pipeline.py single <path-to-pdf> <results-output-dir>`
+`python -m badgerdoc.pipeline single <path-to-pdf> <results-output-dir>`
 
 Results folder will have next structure:
 ```

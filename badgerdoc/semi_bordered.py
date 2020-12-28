@@ -1,16 +1,17 @@
-import cv2
+import logging
 import math
-import numpy as np
-from typing import List, Tuple, Iterable, Optional
+from dataclasses import dataclass
 # from enum import IntEnum
 from enum import Enum
-from dataclasses import dataclass
-from statistics import mean
-import logging
-from bordered import draw_boxes
-from bordered_tables.models import Image, BorderBox, Cell
 from pathlib import Path
+from statistics import mean
+from typing import List, Tuple, Iterable, Optional
 
+import cv2
+import numpy as np
+
+from .bordered import draw_boxes
+from .bordered_tables.models import Image, Cell
 
 GAPS_ROW_THRESHOLD = 12
 GAPS_COLUMN_THRESHOLD = 30
@@ -25,6 +26,7 @@ ROI_DIMENSION_THRESHOLD = 10
 ROI_PADDING = 2
 
 CONTOURS_DIM_THRESHOLD = 10
+
 
 class Axis(int, Enum):
     x = 0
@@ -175,7 +177,7 @@ def find_gaps(img, axis, bg_value, threshold=3):
     gaps = []
     for i in range(img.shape[axis]):
         # 1d sliding window
-        y_slice, x_slice = (slice(None), slice(i, i+1)) if axis else (slice(i, i+1), slice(None))
+        y_slice, x_slice = (slice(None), slice(i, i + 1)) if axis else (slice(i, i + 1), slice(None))
         window = img[y_slice, x_slice].ravel()
         gaps.append(True if can_be_a_gap(window, bg_value, threshold) else False)
     return gaps
@@ -202,7 +204,7 @@ def get_lines_on_orthogonal_axis(img, line: Line):
 def get_column_mask(img, custom_shape=None, gap_thres=3):
     shape = custom_shape if custom_shape is not None else img.shape
     img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    img = cv2.GaussianBlur(img,(3,3),0)
+    img = cv2.GaussianBlur(img, (3, 3), 0)
     (thresh, img_bin) = cv2.threshold(
         img, 128, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU
     )
@@ -216,7 +218,7 @@ def get_column_mask(img, custom_shape=None, gap_thres=3):
 def get_row_mask(img, custom_shape=None, gap_thres=3):
     shape = custom_shape if custom_shape is not None else img.shape
     img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    img = cv2.GaussianBlur(img,(3,3),0)
+    img = cv2.GaussianBlur(img, (3, 3), 0)
     (thresh, img_bin) = cv2.threshold(
         img, 128, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU
     )
@@ -235,7 +237,7 @@ def contours_to_boxes(img, contours, threshold=CONTOURS_DIM_THRESHOLD, v_padding
             continue
         if w < threshold or h < threshold:
             continue
-        boxes.append([x - h_padding, y - v_padding, w + h_padding*2, h + v_padding*2])
+        boxes.append([x - h_padding, y - v_padding, w + h_padding * 2, h + v_padding * 2])
     return boxes
 
 
@@ -270,7 +272,7 @@ def lines_can_be_merged(l1: Line, l2: Line, max_dist: int, axis: int) -> bool:
     l2 = l2.coords
     # FIXME: What about crosslines?
     # ort_intersection = l2[ort_axis] <= l1[ort_axis + 2] <= l2[ort_axis + 2] or l1[ort_axis] <= l2[ort_axis + 2] <= l1[ort_axis + 2]
-    return abs(l1[axis] - l2[axis]) <= max_dist #and ort_intersection
+    return abs(l1[axis] - l2[axis]) <= max_dist  # and ort_intersection
 
 
 def group_lines_by_distance(lines: Iterable[Line], max_dist: int, axis: int) -> List[List[Line]]:
@@ -345,8 +347,8 @@ def get_header(roi_lst: List[TableROI]):
 
 def parse_header(roi: TableROI, img):
     # TODO: optimize work with lines, do not repeat operations which were done previously
-    blur = cv2.GaussianBlur(roi.img,(5,5),0)
-    edges = cv2.Canny(blur,50,150,apertureSize = 3)
+    blur = cv2.GaussianBlur(roi.img, (5, 5), 0)
+    edges = cv2.Canny(blur, 50, 150, apertureSize=3)
     lines_p = cv2.HoughLinesP(edges, 1, np.pi / 180, 50, None, 50, 1)
     if lines_p is None:
         return None, None, None
@@ -402,7 +404,7 @@ def get_pos_of_max_gap(gap_mask):
 
 def parse_borderless(img):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    blur = cv2.GaussianBlur(gray,(3,3),0)
+    blur = cv2.GaussianBlur(gray, (3, 3), 0)
     (thresh, img_bin) = cv2.threshold(
         blur, 128, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU
     )
@@ -415,9 +417,9 @@ def parse_borderless(img):
     table.set_mask()
     padding = 9
     table.mask[:, :padding] = True
-    table.mask[:, table.mask.shape[1]-padding:] = True
+    table.mask[:, table.mask.shape[1] - padding:] = True
     table.mask[:padding, :] = True
-    table.mask[table.mask.shape[0]-padding:, :] = True
+    table.mask[table.mask.shape[0] - padding:, :] = True
 
     mask_array = np.full(table.shape, 0, dtype="int32")
     mask_array[table.mask] = 255
@@ -431,13 +433,13 @@ def parse_borderless(img):
     hy1, hx1 = 0, 0
     hy2, hx2 = hy1 + v_split_pos, hx1 + table.shape[1]
     header_box = [hx1, hy1, hx2, hy2]
-    boxes = [b for b in boxes if not is_empty_img(img[b[1]:b[1]+b[3], b[0]:b[0]+b[2]])]
+    boxes = [b for b in boxes if not is_empty_img(img[b[1]:b[1] + b[3], b[0]:b[0] + b[2]])]
     return boxes, header_box
 
 
 def parse_semi_bordered(img):
-    blur = cv2.GaussianBlur(img,(5,5),0)
-    edges = cv2.Canny(blur,50,150,apertureSize = 3)
+    blur = cv2.GaussianBlur(img, (5, 5), 0)
+    edges = cv2.Canny(blur, 50, 150, apertureSize=3)
     lines_p = cv2.HoughLinesP(edges, 1, np.pi / 180, 50, None, 50, 9)
     if lines_p is None:
         return parse_borderless(img)
@@ -491,7 +493,8 @@ def parse_semi_bordered(img):
         header_mask = np.concatenate([regular_header_roi.mask, concept_mask], axis=1)
 
         # offset correction
-        table_mask[head_v_offset:header_mask.shape[0] + head_v_offset, head_h_offset:header_mask.shape[1] + head_h_offset] = header_mask
+        table_mask[head_v_offset:header_mask.shape[0] + head_v_offset,
+        head_h_offset:header_mask.shape[1] + head_h_offset] = header_mask
         table_mask = np.concatenate([table_mask, body_row_roi.mask], axis=0)
         mask_array = np.full(table_mask.shape, 0, dtype="int32")
     else:
@@ -509,7 +512,7 @@ def parse_semi_bordered(img):
         x1, y1, x2, y2 = l.bbox.coords
         table_mask[y1: y2, x1: x2] = True
     mask_array[table_mask] = 255
-    mask_array[:,:10] = 255
+    mask_array[:, :10] = 255
 
     # FIXME: yes, this is utterly horrible, need more time to deal with type conversions in opencv
     cv2.imwrite('temp.png', mask_array)
@@ -517,7 +520,7 @@ def parse_semi_bordered(img):
     (thresh, im_bw) = cv2.threshold(mask_array, 127, 255, 0)
     contours, hierarchy = cv2.findContours(im_bw, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     boxes = contours_to_boxes(img, contours)
-    boxes = [b for b in boxes if not is_empty_img(img[b[1]:b[1]+b[3], b[0]:b[0]+b[2]])]
+    boxes = [b for b in boxes if not is_empty_img(img[b[1]:b[1] + b[3], b[0]:b[0] + b[2]])]
     if regular_header_roi:
         hy1, hx1 = (0, 0)
         hy2, hx2 = hy1 + header_shape[0], hx1 + header_shape[1]

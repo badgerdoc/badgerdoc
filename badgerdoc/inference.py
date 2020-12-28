@@ -4,13 +4,12 @@ import json
 import time
 from pathlib import Path
 
-from bordered_tables.models import inference_result_to_boxes
-from utils import extract_boxes_from_result, has_image_extension, load_predictions, crop_img_to_bbox, convert_to_xywh
-from bordered import draw_boxes, recognize_bordered_table
-from bordered_tables.bordered_tables_detection import detect_bordered_tables_on_image, Image, ImageDTO, detect_images, BorderBox, Cell
+from .bordered_tables.models import inference_result_to_boxes
+from .utils import extract_boxes_from_result, has_image_extension, load_predictions, convert_to_xywh
+from .bordered_tables.bordered_tables_detection import detect_images, BorderBox, Cell
 from mmdet.apis import init_detector, inference_detector, show_result_pyplot
 import cv2
-from paddle_detector.text_detector import get_text_detector, dt_to_bboxes
+from badgerdoc.paddle_detector.text_detector import get_text_detector, dt_to_bboxes
 
 DEFAULT_THRESHOLD = 0.3
 

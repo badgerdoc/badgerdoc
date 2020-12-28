@@ -5,4 +5,4 @@ images
 output
 .idea/
 __pycache__/
-paddle_detector/inference/*
+badgerdoc/paddle_detector/inference/*
