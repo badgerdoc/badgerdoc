@@ -1,6 +1,6 @@
 from typing import List, Set, Tuple
 
-from bordered_tables.models import Table, TextField, Cell
+from badgerdoc.bordered_tables.models import Table, TextField, Cell
 
 
 def match_table_text(table: Table, text_boxes: List[TextField]):
