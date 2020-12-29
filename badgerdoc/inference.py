@@ -47,7 +47,7 @@ def batch_(img_dir, out_dir, model, config, threshold, limit):
         json.dump(tables, f)
 
 
-def inference_batch(img_dir, out_dir, model, config, threshold, limit):
+def inference_batch(img_dir, out_dir, model, config, threshold, limit, paddler_dir):
     # TODO: model to singleton
     model_name = Path(model).name.rstrip('.pth')
     model = init_detector(config, model, device='cpu')
@@ -60,7 +60,7 @@ def inference_batch(img_dir, out_dir, model, config, threshold, limit):
         result = inference_detector(model, img)
         inf_tables, not_matched = inference_result_to_boxes(
             extract_boxes_from_result(result, ('Bordered', 'Cell', 'Borderless'), score_thr=threshold))
-        text_detector = get_text_detector()
+        text_detector = get_text_detector(base_dir=paddler_dir)
         img_array = cv2.imread(str(img))
         for table in inf_tables:
             x1, y1, x2, y2 = table.bbox
