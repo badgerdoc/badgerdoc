@@ -37,25 +37,6 @@ def run_pipeline():
     pass
 
 
-@run_pipeline.command()
-@click.argument('pdf_path')
-@click.argument('output_path')
-def single(pdf_path, output_path):
-    logger.info("Started processing of file %s", pdf_path)
-    input_pdf = Path(pdf_path)
-    out_path = Path(output_path)
-    images_path = convert_pdf_to_images(input_pdf, out_path)
-    text_path = extract_text_to_json(input_pdf, out_path)
-    ocr_pages_in_path(images_path, out_path.joinpath(input_pdf.name))
-    batch_(str(images_path.absolute()), str(out_path.joinpath(input_pdf.name).absolute()),
-          'models/epoch_36_mmd_v2.pth', 'models/cascadetabnet_config.py', DEFAULT_THRESHOLD, None)
-    draw_(
-        str(images_path.absolute()),
-        str(out_path.joinpath(input_pdf.name).joinpath('marked').absolute()),
-        str(list(out_path.joinpath(input_pdf.name).glob('epoch*.json'))[0].absolute())
-    )
-
-
 def box_to_cell(box, table_origin) -> Cell:
     y0, x0 = table_origin
     x, y, w, h = box
@@ -106,7 +87,9 @@ def semi_bordered(page_img, inference_table: InferenceTable):
             in_header.append(cell)
         else:
             in_rows.append(cell)
-
+    if not in_rows and in_header:
+        in_rows = in_header
+        in_header = []
     rows = find_tables_in_boxes(in_rows, bottom_right_x)
 
     if not boxes:
@@ -176,7 +159,7 @@ def extract_table_from_inference(inf_table: InferenceTable, header_box: Optional
         if cell_2.bottom_right_y - cell_1.top_left_y > 0 and \
                 cell_1.bottom_right_y - cell_2.top_left_y > 0 and\
                 min(cell_2.bottom_right_y - cell_1.top_left_y, cell_1.bottom_right_y - cell_2.top_left_y) \
-                / min(cell_2.height, cell_1.height) > 0.4:
+                / min(cell_2.height, cell_1.height) > 0.2:
             return cell_1.top_left_x - cell_2.top_left_x
         else:
             return cell_1.top_left_y - cell_2.top_left_y
@@ -184,7 +167,7 @@ def extract_table_from_inference(inf_table: InferenceTable, header_box: Optional
     in_header = []
     in_rows = []
     for cell in inf_table.tags:
-        if header_box and cell.box_is_inside_another(header_box):
+        if header_box and cell.box_is_inside_another(header_box, 0.7):
             in_header.append(cell)
         else:
             in_rows.append(cell)
@@ -200,11 +183,11 @@ def extract_table_from_inference(inf_table: InferenceTable, header_box: Optional
         bbox=None,
         table_id=1,
     )
-    for cell in sorted(inf_table.tags, key=cmp_to_key(compare)):
+    for cell in sorted(in_rows, key=lambda x: (x.top_left_x + x.top_left_y * 5000)):
         if current_bottom_y - cell.top_left_y > 0 and \
                 cell.bottom_right_y - current_top_y > 0 and\
                 min(cell.bottom_right_y - current_top_y, current_bottom_y - cell.top_left_y) \
-                / min(cell.height, current_bottom_y - current_top_y) > 0.4:
+                / min(cell.height, current_bottom_y - current_top_y) > 0.2:
             current_row.add(cell)
         else:
             if current_row.objs:
@@ -235,6 +218,48 @@ def block_to_json(block):
     elif isinstance(block, Table):
         return table_to_json(block)
     return {}
+
+
+def cnt_ciphers(cells: List[Cell]):
+    count = 0
+    for cell in cells:
+        for char in "".join([tb.text for tb in cell.text_boxes]):
+            if char in '0123456789':
+                count += 1
+    return count
+
+
+def actualize_header(table: TableHeadered):
+    if table.header:
+        count_ciphers = cnt_ciphers(table.header)
+        header_candidates = []
+        current_ciphers = count_ciphers
+        for row in table.rows:
+            count = cnt_ciphers(row.objs)
+            if count / 5 > current_ciphers:
+                break
+            else:
+                header_candidates.append(row.objs)
+
+        if len(header_candidates) < len(table.rows):
+            for cand in header_candidates:
+                table.header.extend(cand)
+            table.rows = table.rows[len(header_candidates):]
+    elif len(table.rows) > 1:
+        count_ciphers = cnt_ciphers(table.rows[0].objs)
+        header_candidates = [table.rows[0].objs]
+        current_ciphers = count_ciphers
+        for row in table.rows[1:]:
+            count = cnt_ciphers(row.objs)
+            if count / 5 > current_ciphers:
+                break
+            else:
+                header_candidates.append(row.objs)
+
+        if len(header_candidates) < len(table.rows):
+            for cand in header_candidates:
+                table.header.extend(cand)
+            table.rows = table.rows[len(header_candidates):]
 
 
 def table_to_json(table: Table):
@@ -519,6 +544,9 @@ def full(pdf_path, output_path):
                                 cell.text_boxes = []
                                 cell.text_boxes.append(TextField(cell, text))
 
+        for tbl in page.tables:
+            actualize_header(tbl)
+
         with TextExtractor(str(img.absolute()), seg_mode=PSM.SPARSE_TEXT) as extractor:
             text_borders = [1]
             for table in page.tables:
@@ -555,6 +583,35 @@ def full(pdf_path, output_path):
         for r_table in page.tables:
             draw_table(result, r_table)
 
+        for idx, block in enumerate(sorted(blocks, key=lambda b: b.bbox.top_left_y)):
+            if isinstance(block, Table):
+                cells = []
+                for row in block.rows:
+                    for cell in row.objs:
+                        cells.append({
+                            "pos": [
+                                cell.top_left_x,
+                                cell.bottom_right_x,
+                                cell.top_left_y,
+                                cell.bottom_right_y
+                            ],
+                            "text": " ".join([text_box.text for text_box in sorted(cell.text_boxes, key=lambda x: (x.bbox.top_left_y, x.bbox.top_left_x))])
+                        })
+                if hasattr(block, 'header') and block.header:
+                    for cell in block.header:
+                        cells.append({
+                            "pos": [
+                                cell.top_left_x,
+                                cell.bottom_right_x,
+                                cell.top_left_y,
+                                cell.bottom_right_y
+                            ],
+                            "text": " ".join([text_box.text for text_box in sorted(cell.text_boxes, key=lambda x: (x.bbox.top_left_y, x.bbox.top_left_x))])
+                        })
+                Path(f"{output_path}/{str(input_pdf.name)}/{img.name.split('.')[0]}/").mkdir(parents=True, exist_ok=True)
+                with open(f"{output_path}/{str(input_pdf.name)}/{img.name.split('.')[0]}/{idx}_json_cells.json", "w") as f:
+                    json.dump({"chunks": cells}, f, indent=4)
+
         Path(f"{output_path}/{str(input_pdf.name)}/tables/").mkdir(parents=True, exist_ok=True)
         cv2.imwrite(f"{output_path}/{str(input_pdf.name)}/tables/{img.name}", result)
 
@@ -578,4 +635,4 @@ def match_cells_table(in_inf_table, headered_table):
 if __name__ == '__main__':
     configure_logging()
     run_pipeline()
-    # full('/home/ilia/Downloads/2.pdf', '/home/ilia/test_new_alg/')
+    # full('/home/ilia/Downloads/sp_3.pdf', '/home/ilia/test_header_alg/')
