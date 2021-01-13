@@ -25,8 +25,14 @@ def has_image_extension(path: Path, allowed_extensions=IMG_EXTENSIONS):
 def detect_bordered_tables_on_image(image: Image, draw=True, mask: numpy.ndarray = None):
     if mask is None:
         mask = cv2.imread(str(image.path.absolute()))
-    image.shape = mask.shape[:2]
-    img_gray = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
+    if len(mask.shape) == 3 and mask.shape[2] != 1:
+        img_gray = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
+    else:
+        img_gray = mask.copy()
+
+    # Normalize contrast
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    img_gray = clahe.apply(img_gray)
     (thresh, img_bin) = cv2.threshold(
         img_gray, 128, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU
     )

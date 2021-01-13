@@ -22,6 +22,7 @@ from tesseract.tesseract_manager import ocr_pages_in_path
 from inference import batch_, draw_, DEFAULT_THRESHOLD, inference_batch
 from text_cells_matcher.text_cells_matcher import match_table_text, match_cells_text_fields
 from utils import has_image_extension
+from table_detection.algorithms.semi_bordered import LineBasedSearch
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +40,7 @@ def run_pipeline():
 
 def box_to_cell(box, table_origin) -> Cell:
     y0, x0 = table_origin
-    x, y, w, h = box
+    x, y, w, h = box.x1, box.y1, box.x2 - box.x1, box.y2 - box.y1
     return Cell(x + x0, y + y0, x + x0 + w, y + y0 + h)
 
 
@@ -69,9 +70,11 @@ def semi_bordered(page_img, inference_table: InferenceTable):
     bottom_right_y = inference_table.bbox.bottom_right_y
     table_image = page_img[top_left_y:bottom_right_y, top_left_x:bottom_right_x]
     table_origin = (top_left_y, top_left_x)  # (y1, x1)
+    line_based_search = LineBasedSearch()
     # TODO: rewrite try ... catch
     try:
-        boxes, header_box = parse_semi_bordered(table_image)
+        boxes = line_based_search.detect(table_image)
+        header_box = None
     except Exception as e:
         logger.warning(str(e))
         return None
@@ -446,10 +449,10 @@ def full(pdf_path, output_path):
                     semi_border, header_cell = res
                     for row in semi_border.rows:
                         for cell in row.objs:
-                            cell.top_left_x = cell.top_left_x - 5
-                            cell.top_left_y = cell.top_left_y - 5
-                            cell.bottom_right_x = cell.bottom_right_x + 5
-                            cell.bottom_right_y = cell.bottom_right_y + 5
+                            cell.top_left_x = cell.top_left_x - 0
+                            cell.top_left_y = cell.top_left_y - 0
+                            cell.bottom_right_x = cell.bottom_right_x + 0
+                            cell.bottom_right_y = cell.bottom_right_y + 0
                     cells_count = 0
                     for row in semi_border.rows:
                         cells_count += len(row.objs)
