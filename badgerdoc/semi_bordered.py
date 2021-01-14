@@ -342,6 +342,8 @@ def is_empty_img(img, threshold=None):
 
 def get_header(roi_lst: List[TableROI]):
     # TODO: implement logic for header selection and validation, check gaps distribution
+    if len(roi_lst) > 2 and roi_lst[0].origin[1] < 40:
+        return roi_lst[1], roi_lst[2:]
     return roi_lst[0], roi_lst[1:]
 
 
@@ -527,7 +529,10 @@ def parse_semi_bordered(img):
         header_box = [hx1, hy1, hx2, hy2]
     else:
         hy1, hx1 = (0, 0)
-        hy2, hx2 = hy1 + row_separator_lines[0].coords[1], hx1 + img.shape[1]
+        header_candidate = row_separator_lines[0]
+        if len(row_separator_lines) > 1 and row_separator_lines[0].coords[1] < 40:
+            header_candidate = row_separator_lines[1]
+        hy2, hx2 = hy1 + header_candidate.coords[1], hx1 + img.shape[1]
         header_box = [hx1, hy1, hx2, hy2]
     return boxes, header_box
 
