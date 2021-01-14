@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pdf2image import convert_from_path
 from poppler import load_from_file
 
-from bordered_tables.models import BorderBox, TextField
+from badgerdoc.bordered_tables.models import BorderBox, TextField
 
 logger = logging.getLogger(__name__)
 DPI = 400

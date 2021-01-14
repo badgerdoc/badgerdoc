@@ -1,9 +1,10 @@
 from dataclasses import dataclass, field
-from tesseract.extractor import TextExtractor
 from pathlib import Path
 from typing import List, ClassVar, Tuple, Optional, Any, Dict
 
 import numpy as np
+
+from badgerdoc.tesseract.extractor import TextExtractor
 
 TABLE_TAGS = ("Bordered", "Borderless")
 CELL_TAG = 'Cell'
@@ -117,9 +118,9 @@ class Row(TableItem):
 
     def is_box_from_same_line(self, box: BorderBox):
         return (
-            abs(self.bbox.top_left_y - box.top_left_y) <= self.VERTICAL_MARGIN
-            and abs(self.bbox.bottom_right_y - box.bottom_right_y)
-            <= self.VERTICAL_MARGIN
+                abs(self.bbox.top_left_y - box.top_left_y) <= self.VERTICAL_MARGIN
+                and abs(self.bbox.bottom_right_y - box.bottom_right_y)
+                <= self.VERTICAL_MARGIN
         )
 
 
@@ -129,9 +130,9 @@ class Column(TableItem):
 
     def is_box_from_same_line(self, box: BorderBox):
         return (
-            abs(self.bbox.top_left_x - box.top_left_x) <= self.HORIZONTAL_MARGIN
-            and abs(self.bbox.bottom_right_x - box.bottom_right_x)
-            <= self.HORIZONTAL_MARGIN
+                abs(self.bbox.top_left_x - box.top_left_x) <= self.HORIZONTAL_MARGIN
+                and abs(self.bbox.bottom_right_x - box.bottom_right_x)
+                <= self.HORIZONTAL_MARGIN
         )
 
 
@@ -235,6 +236,7 @@ class Image:
                         self.content_map[box.bbox_id] = TextContent(
                             bbox=box, text=text, confidence=conf
                         )
+
 
 @dataclass
 class Page:

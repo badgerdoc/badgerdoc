@@ -1,15 +1,16 @@
-from typing import List, Tuple, Dict
 import json
 import uuid
-from dataclasses import dataclass, asdict,field
+from dataclasses import dataclass, asdict, field
 from pathlib import Path
-from mmdet.apis import init_detector, inference_detector
-import numpy as np
-import cv2
+from typing import List, Dict
 
-from bordered_tables.models import TextField, InferenceTable, inference_result_to_boxes, BorderBox
-from pdf_reader.pdf_reader import poppler_text_field_to_text_field, extract_text
-from utils import extract_boxes_from_result
+import cv2
+import numpy as np
+from mmdet.apis import init_detector, inference_detector
+
+from .bordered_tables.models import TextField, InferenceTable, inference_result_to_boxes, BorderBox
+from .pdf_reader.pdf_reader import poppler_text_field_to_text_field, extract_text
+from .utils import extract_boxes_from_result
 
 label2color = {
     0: '#e17282',
@@ -17,7 +18,6 @@ label2color = {
     2: '#38fb5c',
     3: '#38f8fb',
 }
-
 
 category_to_id = {
     'Bordered': 0,
@@ -59,7 +59,8 @@ class ImageCOCO:
     height: int
 
 
-def extract_boxes_from_inference_result(img_id, inference_result: List[InferenceTable], not_matched: List[AnnotatedBBox]):
+def extract_boxes_from_inference_result(img_id, inference_result: List[InferenceTable],
+                                        not_matched: List[AnnotatedBBox]):
     instances = []
     for table in inference_result:
         x1, y1, x2, y2 = table.bbox.box
@@ -193,14 +194,14 @@ def batch(pdf_path, img_dir, out_json, model, config, threshold):
 
 
 def extract_poppler_text(pdf_path: Path, images_path: Path):
-        pages = extract_text(pdf_path)
-        pages_dict = {}
-        for page_num, poppler_page in pages.items():
-            page_image = cv2.imread(str(images_path.absolute()) + f"/{page_num}.png")
-            scale = page_image.shape[0] / poppler_page.bbox.height
-            text_fields = [poppler_text_field_to_text_field(text_field, scale) for text_field in poppler_page.text_fields]
-            pages_dict[page_num] = text_fields
-        return pages_dict
+    pages = extract_text(pdf_path)
+    pages_dict = {}
+    for page_num, poppler_page in pages.items():
+        page_image = cv2.imread(str(images_path.absolute()) + f"/{page_num}.png")
+        scale = page_image.shape[0] / poppler_page.bbox.height
+        text_fields = [poppler_text_field_to_text_field(text_field, scale) for text_field in poppler_page.text_fields]
+        pages_dict[page_num] = text_fields
+    return pages_dict
 
 
 def merge_closest_text_fields(text_fields: List[TextField]):
