@@ -23,6 +23,7 @@ from inference import batch_, draw_, DEFAULT_THRESHOLD, inference_batch
 from text_cells_matcher.text_cells_matcher import match_table_text, match_cells_text_fields
 from utils import has_image_extension
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -91,6 +92,8 @@ def semi_bordered(page_img, inference_table: InferenceTable):
         in_rows = in_header
         in_header = []
     rows = find_tables_in_boxes(in_rows, bottom_right_x)
+    if not in_header:
+        header_cell = None
 
     if not boxes:
         return None
@@ -208,7 +211,7 @@ def extract_table_from_inference(inf_table: InferenceTable, header_box: Optional
     return TableHeadered(bbox=inf_table.bbox, table_id=0, cols=[], rows=rows, header=in_header)
 
 
-def block_to_json(block):
+def block_to_json(block, structural_condition):
     if isinstance(block, TextField):
         return {
             "type": "text",
@@ -216,7 +219,7 @@ def block_to_json(block):
             "bbox": block.bbox.box
         }
     elif isinstance(block, Table):
-        return table_to_json(block)
+        return table_to_json(block, structural_condition)
     return {}
 
 
@@ -262,7 +265,7 @@ def actualize_header(table: TableHeadered):
             table.rows = table.rows[len(header_candidates):]
 
 
-def table_to_json(table: Table):
+def table_to_json(table: Table, structural_condition):
     json_t = {
         'type': 'table',
         'bbox': table.bbox.box
@@ -282,7 +285,26 @@ def table_to_json(table: Table):
     json_t['rows'] = rows
 
     if hasattr(table, 'header') and table.header:
-        h_cells = sorted(table.header, key=lambda x: (x.top_left_x, x.top_left_y))
+        h_cells_filtered = {}
+        for cell in table.header:
+            if not h_cells_filtered.get(cell.box):
+                h_cells_filtered[cell.box] = cell
+            else:
+                if cell.text_boxes:
+                    h_cells_filtered[cell.box] = cell
+        h_cells = sorted(h_cells_filtered.values(), key=lambda x: (x.top_left_x, x.top_left_y))
+
+        def is_intersect(line_1, line_2):
+            return max(line_1[1], line_2[1]) - min(line_1[0], line_2[0]) < line_1[1] - line_1[0] + line_2[1] - line_2[0] \
+                   and not (line_1[1] == line_2[1] and line_1[0] - line_2[0])
+
+        have_span = False
+        for cell_1 in h_cells:
+            for cell_2 in h_cells:
+                have_span = have_span \
+                            or (is_intersect((cell_1.top_left_x, cell_1.bottom_right_x), (cell_2.top_left_x, cell_2.bottom_right_x))
+                                and not is_intersect((cell_1.top_left_y, cell_1.bottom_right_y), (cell_2.top_left_y, cell_2.bottom_right_y)))
+
         top_y = max([h_c.top_left_y for h_c in h_cells])
         bottom_y = min([h_c.top_left_y for h_c in h_cells])
         top = []
@@ -296,7 +318,7 @@ def table_to_json(table: Table):
             else:
                 other.append(cell)
         head = []
-        if top and bottom:
+        if top and bottom and len(top) > len(bottom) and have_span and structural_condition:
             chunk = len(top) // len(bottom)
             if len(top) % len(bottom) > 0:
                 chunk += 1
@@ -307,20 +329,24 @@ def table_to_json(table: Table):
                 top_ch = top[i * chunk:end]
                 t_text = " ".join([text_box.text for text_box in sorted(t.text_boxes, key=lambda x: (x.bbox.top_left_y, x.bbox.top_left_x))])
                 for ce in top_ch:
-                    text = t_text + "->" + " ".join([text_box.text for text_box in sorted(ce.text_boxes, key=lambda x: (x.bbox.top_left_y, x.bbox.top_left_x))])
-                    if text:
-                        head.append({
-                            "bbox": ce.box,
-                            "text": text
-                        })
-        for ce in other:
-            text = " ".join([text_box.text for text_box in sorted(ce.text_boxes, key=lambda x: (x.bbox.top_left_y, x.bbox.top_left_x))])
-            if head:
+                    text = "->".join([t_text, " ".join([text_box.text for text_box in sorted(ce.text_boxes, key=lambda x: (x.bbox.top_left_y, x.bbox.top_left_x))])])
+                    head.append({
+                        "bbox": ce.box,
+                        "text": text
+                    })
+            for ce in other:
+                text = " ".join([text_box.text for text_box in sorted(ce.text_boxes, key=lambda x: (x.bbox.top_left_y, x.bbox.top_left_x))])
                 head.append({
                     "bbox": ce.box,
                     "text": text
                 })
-
+        else:
+            for cel in h_cells:
+                text = " ".join([text_box.text for text_box in sorted(cel.text_boxes, key=lambda x: (x.bbox.top_left_y, x.bbox.top_left_x))])
+                head.append({
+                    "bbox": cel.box,
+                    "text": text
+                })
         json_t['header'] = head
     return json_t
 
@@ -431,6 +457,8 @@ def full(pdf_path, output_path):
         pages.append(page)
         text_fields_to_match = text_fields
 
+        structural_condition = "(C22W1.005)" in " ".join([text_box.text for text_box in text_fields])
+
         inf_tables = []
         for inf_table in inference_result[img.name]:
             if inf_table.paddler:
@@ -457,16 +485,17 @@ def full(pdf_path, output_path):
                         cells_count += len(semi_border.header)
 
                     semi_border_score = match_cells_table(in_inf_table, semi_border)
-                    if semi_border_score >= mask_rcnn_count_matches and cells_count > len(inf_table.tags):
-                        inf_tables.append((semi_border_score, semi_border))
+                    if (semi_border_score >= mask_rcnn_count_matches and cells_count > len(inf_table.tags)) or structural_condition:
+                        inf_tables.append((semi_border_score, header_cell, semi_border))
                     else:
-                        inf_tables.append((mask_rcnn_count_matches, extract_table_from_inference(inf_table, header_cell, not_matched)))
+                        inf_tables.append((mask_rcnn_count_matches, header_cell, extract_table_from_inference(inf_table, header_cell, not_matched)))
                 else:
-                    inf_tables.append((mask_rcnn_count_matches, extract_table_from_inference(inf_table, None, not_matched)))
+                    inf_tables.append((mask_rcnn_count_matches, None, extract_table_from_inference(inf_table, None, not_matched)))
             else:
-                inf_tables.append((mask_rcnn_count_matches, extract_table_from_inference(inf_table, None, not_matched)))
+                inf_tables.append((mask_rcnn_count_matches, None, extract_table_from_inference(inf_table, None, not_matched)))
 
-        if has_bordered or any(score < 5 for score, _ in inf_tables):
+        all_tables = []
+        if has_bordered or any(score < 5 for score, _, __ in inf_tables):
             image = detect_tables_on_page(img, inference_result[img.name], draw=True)
             if image.tables:
                 bordered_tables = []
@@ -480,7 +509,7 @@ def full(pdf_path, output_path):
                 text_fields_to_match = text_fields
                 for bordered_table in bordered_tables:
                     matched = False
-                    for score, inf_table in inf_tables:
+                    for score, header_cell, inf_table in inf_tables:
                         if inf_table.bbox.box_is_inside_another(bordered_table.bbox):
                             in_table, text_fields_to_match = match_table_text(bordered_table, text_fields_to_match)
                             bordered_score = match_cells_table(in_table, bordered_table)
@@ -498,29 +527,29 @@ def full(pdf_path, output_path):
                                 inf_cells_count += len(inf_table.header)
 
                             if bordered_score > score or bordered_score == score and cells_count >= inf_cells_count:
-                                page.tables.append(bordered_table)
+                                all_tables.append((header_cell, bordered_table))
                             else:
-                                page.tables.append(inf_table)
-                            inf_tables.remove((score, inf_table))
+                                all_tables.append((header_cell, inf_table))
+                            inf_tables.remove((score, header_cell, inf_table))
                             matched = True
                             break
                     if not matched:
                         in_table, text_fields_to_match = match_table_text(bordered_table, text_fields_to_match)
                         _ = match_cells_table(in_table, bordered_table)
-                        page.tables.append(bordered_table)
+                        all_tables.append((None, bordered_table))
                 if inf_tables:
-                    page.tables.extend([inf_table for _, inf_table in inf_tables])
+                    all_tables.extend([(header_cell, inf_table) for _, header_cell, inf_table in inf_tables])
         else:
-            page.tables.extend([tab for _, tab in inf_tables])
+            all_tables.extend([(header_cell, tab) for _, header_cell, tab in inf_tables])
 
         count_object = 0
-        for tab in page.tables:
+        for _, tab in all_tables:
             for row in tab.rows:
                 count_object += len(row.objs)
 
         text_fields_to_match = text_fields
         count_in_table = 0
-        for table in page.tables:
+        for _, table in all_tables:
             in_table, text_fields_to_match = match_table_text(table, text_fields_to_match)
             count_in_table += len(in_table)
             table_obj = [row.objs for row in table.rows]
@@ -533,7 +562,7 @@ def full(pdf_path, output_path):
             _ = match_cells_text_fields(objs, in_table)
         if count_in_table < count_object // 10:
             with TextExtractor(str(img.absolute()), seg_mode=PSM.SPARSE_TEXT) as extractor:
-                for table in page.tables:
+                for _, table in all_tables:
                     for row in table.rows:
                         for cell in row.objs:
                             text, _ = extractor.extract(
@@ -544,8 +573,11 @@ def full(pdf_path, output_path):
                                 cell.text_boxes = []
                                 cell.text_boxes.append(TextField(cell, text))
 
-        for tbl in page.tables:
-            actualize_header(tbl)
+        for header_cell, tbl in all_tables:
+            if not structural_condition:
+                actualize_header(tbl)
+
+        page.tables.extend([tbl for _, tbl in all_tables])
 
         with TextExtractor(str(img.absolute()), seg_mode=PSM.SPARSE_TEXT) as extractor:
             text_borders = [1]
@@ -577,7 +609,7 @@ def full(pdf_path, output_path):
         blocks.extend(page.text)
 
         for block in sorted(blocks, key=lambda b: b.bbox.top_left_y):
-            json_img['blocks'].append(block_to_json(block))
+            json_img['blocks'].append(block_to_json(block, structural_condition))
 
         result = page_image.copy()
         for r_table in page.tables:
@@ -635,4 +667,5 @@ def match_cells_table(in_inf_table, headered_table):
 if __name__ == '__main__':
     configure_logging()
     run_pipeline()
-    # full('/home/ilia/Downloads/sp_3.pdf', '/home/ilia/test_header_alg/')
+    # full('/home/ilia/Downloads/3.pdf', '/home/ilia/test_header_alg/')
+
