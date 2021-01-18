@@ -37,7 +37,7 @@ def paddler_dir():
 
 
 def single_model_file():
-    base_dir = os.getenv("BADGERDOC_MODELS_PATH", ".")
+    base_dir = os.getenv("BADGERDOC_MODELS_PATH", "models")
     return str(Path(base_dir) / "models" / SINGLE_MODEL_FILE)
 
 

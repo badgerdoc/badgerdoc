@@ -50,8 +50,8 @@ class TextDetectorConfig:
 
 def get_text_detector(
         base_dir=".",
-        det_model_dir='./ch_ppocr_mobile_v2.0_det_infer',
-        cls_model_dir='./ch_ppocr_mobile_v2.0_cls_infer',
+        det_model_dir='ch_ppocr_mobile_v2.0_det_infer',
+        cls_model_dir='ch_ppocr_mobile_v2.0_cls_infer',
 ):
     args = TextDetectorConfig()
     args.det_model_dir = os.path.join(base_dir, det_model_dir)
