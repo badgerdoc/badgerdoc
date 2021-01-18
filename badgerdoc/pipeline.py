@@ -42,12 +42,12 @@ def single_model_file():
 
 
 def full_model_file():
-    base_dir = os.getenv("BADGERDOC_MODELS_PATH", ".")
+    base_dir = os.getenv("BADGERDOC_MODELS_PATH", "models")
     return str(Path(base_dir) / FULL_MODEL_FILE)
 
 
 def model_config():
-    base_dir = os.getenv("BADGERDOC_MODELS_PATH", ".")
+    base_dir = os.getenv("BADGERDOC_MODELS_PATH", "models")
     return str(Path(base_dir) / MODEL_CONFIG)
 
 
