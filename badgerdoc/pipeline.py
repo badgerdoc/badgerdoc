@@ -32,8 +32,7 @@ MODEL_CONFIG = "cascadetabnet_config.py"
 
 
 def paddler_dir():
-    base_dir = os.getenv("BADGERDOC_PADDLEOCR_DATA_PATH", ".")
-    return str(Path(base_dir) / "paddle_detector" / "inference")
+    return os.getenv("BADGERDOC_PADDLEOCR_DATA_PATH", ".")
 
 
 def single_model_file():
