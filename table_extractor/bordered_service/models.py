@@ -1,138 +1,14 @@
 from dataclasses import dataclass, field
-from tesseract.extractor import TextExtractor
+
+from table_extractor.model.table import StructuredTable, BorderBox, TextField, Cell, Table, Row, Column
+from table_extractor.tesseract_service.tesseract_extractor import TextExtractor
 from pathlib import Path
-from typing import List, ClassVar, Tuple, Optional, Any, Dict
+from typing import List, Tuple, Optional, Any, Dict, Union
 
 import numpy as np
 
 TABLE_TAGS = ("Bordered", "Borderless")
 CELL_TAG = 'Cell'
-
-
-@dataclass(unsafe_hash=True)
-class BorderBox:
-    top_left_x: int
-    top_left_y: int
-    bottom_right_x: int
-    bottom_right_y: int
-    bbox_id: int = field(init=False)
-
-    def __post_init__(self):
-        self.bbox_id = id(self)
-
-    @property
-    def box(self):
-        return (
-            self.top_left_x,
-            self.top_left_y,
-            self.bottom_right_x,
-            self.bottom_right_y,
-        )
-
-    @property
-    def width(self):
-        return self.bottom_right_x - self.top_left_x
-
-    @property
-    def height(self):
-        return self.bottom_right_y - self.top_left_y
-
-    def merge(self, bb: "BorderBox") -> "BorderBox":
-        return BorderBox(
-            top_left_x=min(self.top_left_x, bb.top_left_x),
-            top_left_y=min(self.top_left_y, bb.top_left_y),
-            bottom_right_x=max(self.bottom_right_x, bb.bottom_right_x),
-            bottom_right_y=max(self.bottom_right_y, bb.bottom_right_y),
-        )
-
-    def box_is_inside_another(self, bb2, threshold=0.9) -> bool:
-        intersection_area, bb1_area, bb2_area = self.get_boxes_intersection_area(
-            other_box=bb2
-        )
-        if intersection_area == 0:
-            return False
-        return any((intersection_area / bb) > threshold for bb in (bb1_area, bb2_area))
-
-    def get_boxes_intersection_area(self, other_box) -> Tuple:
-        bb1 = self.box
-        bb2 = other_box.box
-        x_left = max(bb1[0], bb2[0])
-        y_top = max(bb1[1], bb2[1])
-        x_right = min(bb1[2], bb2[2])
-        y_bottom = min(bb1[3], bb2[3])
-        if x_right < x_left or y_bottom < y_top:
-            intersection_area = 0.0
-        else:
-            intersection_area = (x_right - x_left + 1) * (y_bottom - y_top + 1)
-        bb1_area = (bb1[2] - bb1[0] + 1) * (bb1[3] - bb1[1] + 1)
-        bb2_area = (bb2[2] - bb2[0] + 1) * (bb2[3] - bb2[1] + 1)
-        return intersection_area, bb1_area, bb2_area
-
-    def __getitem__(self, item):
-        return self.box[item]
-
-
-@dataclass(unsafe_hash=True)
-class TextField:
-    bbox: BorderBox
-    text: str
-
-
-@dataclass
-class Cell(BorderBox):
-    text_boxes: List[TextField] = field(default_factory=list)
-    confidence: float = field(default=0.0)
-
-
-@dataclass
-class TableItem:
-    bbox: BorderBox
-    table_id: int
-    objs: List = field(default_factory=list)
-
-    def add(self, obj: BorderBox):
-        self.objs.append(obj)
-        self.bbox = self.bbox.merge(obj)
-
-
-@dataclass
-class Table:
-    bbox: BorderBox
-    table_id: int
-    cols: List = field(default_factory=list)
-    rows: List = field(default_factory=list)
-
-    def is_box_from_table(self, box: BorderBox, threshold=0.99) -> bool:
-        return self.bbox.box_is_inside_another(box, threshold)
-
-
-@dataclass
-class TableHeadered(Table):
-    header: List[Cell] = field(default_factory=list)
-
-
-@dataclass
-class Row(TableItem):
-    VERTICAL_MARGIN: ClassVar = 10
-
-    def is_box_from_same_line(self, box: BorderBox):
-        return (
-            abs(self.bbox.top_left_y - box.top_left_y) <= self.VERTICAL_MARGIN
-            and abs(self.bbox.bottom_right_y - box.bottom_right_y)
-            <= self.VERTICAL_MARGIN
-        )
-
-
-@dataclass
-class Column(TableItem):
-    HORIZONTAL_MARGIN: ClassVar = 10
-
-    def is_box_from_same_line(self, box: BorderBox):
-        return (
-            abs(self.bbox.top_left_x - box.top_left_x) <= self.HORIZONTAL_MARGIN
-            and abs(self.bbox.bottom_right_x - box.bottom_right_x)
-            <= self.HORIZONTAL_MARGIN
-        )
 
 
 @dataclass
@@ -165,10 +41,10 @@ class Image:
         scale_y = self.pdf_page_shape[1] / self.shape[0]
 
         for box in self.objs:
-            box.top_left_x = np.round(box[0] * scale_x)
-            box.top_left_y = np.round(box[1] * scale_y)
-            box.bottom_right_x = np.round(box[2] * scale_x)
-            box.bottom_right_y = np.round(box[3] * scale_y)
+            box.top_left_x = int(np.round(box[0] * scale_x))
+            box.top_left_y = int(np.round(box[1] * scale_y))
+            box.bottom_right_x = int(np.round(box[2] * scale_x))
+            box.bottom_right_y = int(np.round(box[3] * scale_y))
 
     def sort_boxes_topographically(self):
         self.boxes = sorted(self.bboxes, key=lambda x: (x.top_left_x, x.top_left_y))
@@ -236,16 +112,23 @@ class Image:
                             bbox=box, text=text, confidence=conf
                         )
 
+
 @dataclass
 class Page:
-    tables: List[Table] = field(default_factory=list)
+    page_num: int
+    bbox: BorderBox
+    tables: List[StructuredTable] = field(default_factory=list)
     text: List[TextField] = field(default_factory=list)
+
+    @property
+    def blocks(self) -> List[Union[StructuredTable, TextField]]:
+        return sorted(self.tables + self.text, key=lambda x: x.bbox.top_left_y)
 
 
 @dataclass
 class InferenceTable:
     bbox: BorderBox
-    tags: List[BorderBox] = field(default_factory=list)
+    tags: List[Cell] = field(default_factory=list)
     confidence: float = field(default=0.)
     label: str = field(default='')
     paddler: List[Cell] = field(default_factory=list)

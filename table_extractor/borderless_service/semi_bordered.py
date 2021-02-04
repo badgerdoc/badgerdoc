@@ -7,10 +7,12 @@ from enum import Enum
 from dataclasses import dataclass
 from statistics import mean
 import logging
-from bordered import draw_boxes
-from bordered_tables.models import Image, BorderBox, Cell
+
+from table_extractor.bordered_service.models import Image, InferenceTable
+from table_extractor.model.table import BorderBox, Cell, Table, Row
 from pathlib import Path
 
+logger = logging.getLogger(__name__)
 
 GAPS_ROW_THRESHOLD = 12
 GAPS_COLUMN_THRESHOLD = 30
@@ -140,6 +142,16 @@ class Line:
         elif 90 - tolerance <= self.angle <= 90 + tolerance:
             return Axis.x
         return None
+
+
+def draw_boxes(img, boxes, origin=(0, 0), color=(0,255,0), stroke=2):
+    new_img = img.copy()
+    for box in boxes:
+        x, y, w, h = box
+        x += origin[0]
+        y += origin[1]
+        cv2.rectangle(new_img,(x,y),(x+w,y+h),color,stroke)
+    return new_img
 
 
 def can_be_a_gap(window: List[float], bg_value, threshold):
@@ -340,6 +352,8 @@ def is_empty_img(img, threshold=None):
 
 def get_header(roi_lst: List[TableROI]):
     # TODO: implement logic for header selection and validation, check gaps distribution
+    if len(roi_lst) > 2 and roi_lst[0].origin[1] < 40:
+        return roi_lst[1], roi_lst[2:]
     return roi_lst[0], roi_lst[1:]
 
 
@@ -524,7 +538,10 @@ def parse_semi_bordered(img):
         header_box = [hx1, hy1, hx2, hy2]
     else:
         hy1, hx1 = (0, 0)
-        hy2, hx2 = hy1 + row_separator_lines[0].coords[1], hx1 + img.shape[1]
+        header_candidate = row_separator_lines[0]
+        if len(row_separator_lines) > 1 and row_separator_lines[0].coords[1] < 40:
+            header_candidate = row_separator_lines[1]
+        hy2, hx2 = hy1 + header_candidate.coords[1], hx1 + img.shape[1]
         header_box = [hx1, hy1, hx2, hy2]
     return boxes, header_box
 
@@ -541,33 +558,50 @@ def boxes_to_image_obj(path: Path, boxes, origin):
     return img_data
 
 
-if __name__ == '__main__':
-    file = 'tables/2.png'
-    img = cv2.imread(file)
-    # img = img[1389:1998, 609:2645]
-    # img = img[375:1500,638:3200]
-    # img = img[1530:1998,638:4100]
-    # img = img[2100:2600,638:2700]
-    # img = img[2690:3049,400:2702]
+def box_to_cell(box, table_origin_shift) -> Cell:
+    y0, x0 = table_origin_shift
+    x, y, w, h = box
+    return Cell(x + x0, y + y0, x + x0 + w, y + y0 + h)
 
-    # table_crop = img[1240:2007, 202:3312]  # 0
-    # table_crop = img[832:3543, 316:2233]  # 9
-    table_crop = img[1423:2070, 307:2560]  # 2
-    # table_crop = img[800:2363, 1183:2303]  # 20
-    # table_crop[:,:2] = (255, 255, 255)
-    # table_crop = img[756:1630, 280:3129]  # 26
-    # table_crop = img[822:2815, 491:3058]  # 11
-    # table_crop = img[3006:3861, 250:2675]  # 21
-    # table_crop = img[757:1615, 280:2680]  # 22
-    # table_crop = img[821:3536, 350:2433]  # 8
-    table_origin = (1389, 609)  # (y1, x1)
-    cv2.imshow('Image', table_crop)
-    cv2.waitKey(0)
-    boxes, header_box = parse_semi_bordered(table_crop)
-    img_data = boxes_to_image_obj(Path(file), boxes, table_origin)
-    img_header_data = boxes_to_image_obj(Path(file), [header_box], table_origin)
 
-    # This image does not count offset, so boxes are displayed incorrectly now
-    img = draw_boxes(table_crop, boxes)
-    cv2.imshow('Image', img)
-    cv2.waitKey(0)
+def construct_rows_from_boxes(cells: List[Cell], x_max) -> List[Row]:
+    h_lines = {}
+
+    for box in sorted(cells, key=lambda x: (x.top_left_x, x.top_left_y)):
+        h_line_key = box[1]
+        if h_line_key not in h_lines:
+            row = Row(
+                bbox=BorderBox(box[0], box[1], x_max, box[3]),
+                table_id=1,
+            )
+            row.add(box)
+            h_lines[h_line_key] = row
+        else:
+            h_lines[h_line_key].add(box)
+
+    return list(h_lines.values())
+
+
+def semi_bordered(page_img: np.ndarray, inference_table: InferenceTable) -> Optional[Table]:
+    top_left_x = inference_table.bbox.top_left_x
+    top_left_y = inference_table.bbox.top_left_y
+    bottom_right_x = inference_table.bbox.bottom_right_x
+    bottom_right_y = inference_table.bbox.bottom_right_y
+    table_image = page_img[top_left_y:bottom_right_y, top_left_x:bottom_right_x]
+    table_origin_shift = (top_left_y, top_left_x)  # (y1, x1)
+    # TODO: rewrite try ... catch
+    try:
+        boxes, _ = parse_semi_bordered(table_image)
+    except Exception as e:
+        logger.warning(str(e))
+        return None
+    if not boxes:
+        return None
+    cells = [box_to_cell(box, table_origin_shift) for box in boxes]
+
+    rows = construct_rows_from_boxes(cells, bottom_right_x)
+
+    # TODO: find also cols
+    table = Table(bbox=inference_table.bbox, table_id=0, cols=[], rows=rows)
+
+    return table

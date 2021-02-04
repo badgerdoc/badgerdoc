@@ -1,4 +1,8 @@
+temp.png
+.env
 venv
+.venv
+mmcv
 mmdetection
 models
 images
@@ -6,3 +10,6 @@ output
 .idea/
 __pycache__/
 paddle_detector/inference/*
+*.log
+*.pid
+./uploads

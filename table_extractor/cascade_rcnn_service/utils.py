@@ -1,5 +1,4 @@
 import numpy as np
-import json
 from pathlib import Path
 
 IMG_EXTENSIONS = ('png', 'jpg', 'jpeg', 'bmp')
@@ -34,17 +33,3 @@ def extract_boxes_from_result(result, class_names, score_thr=0.3):
 
 def has_image_extension(path: Path, allowed_extensions=IMG_EXTENSIONS):
     return any(path.name.lower().endswith(e.lower()) for e in allowed_extensions)
-
-
-def load_predictions(path):
-    with open(path, 'r') as f:
-        return json.load(f)
-
-
-def crop_img_to_bbox(img, bbox):
-    x1, y1, x2, y2 = bbox
-    return img[y1:y2, x1:x2]
-
-def convert_to_xywh(bbox):
-    x1, y1, x2, y2 = bbox
-    return x1, y1, x2 - x1, y2 - y1

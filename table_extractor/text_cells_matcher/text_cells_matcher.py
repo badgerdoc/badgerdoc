@@ -1,6 +1,6 @@
-from typing import List, Set, Tuple
+from typing import List, Tuple
 
-from bordered_tables.models import Table, TextField, Cell
+from table_extractor.model.table import TextField, Cell, Table
 
 
 def match_table_text(table: Table, text_boxes: List[TextField]):

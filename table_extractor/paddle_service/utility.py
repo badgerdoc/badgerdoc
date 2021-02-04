@@ -1,7 +1,5 @@
 import os
 import sys
-# from paddle_detector.fluid.core import AnalysisConfig
-# from paddle_detector.fluid.core import create_paddle_predictor
 from paddle_detector.fluid.core_avx import AnalysisConfig
 from paddle_detector.fluid.core_avx import create_paddle_predictor
 

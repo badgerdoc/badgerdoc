@@ -9,7 +9,8 @@ import cv2
 import numpy as np
 from tqdm import tqdm
 
-from .models import Image, BorderBox, ImageDTO, InferenceTable, Cell
+from .models import Image, ImageDTO, InferenceTable
+from ..model.table import BorderBox, Cell
 from .utils import draw_cols_and_rows
 
 logger = logging.getLogger(__name__)
@@ -102,7 +103,7 @@ def detect_images(images: Path, pdf_pages_size: List, draw: bool = True) -> dict
     return {"detections": result}
 
 
-def detect_tables_on_page(image_path: Path, inference_result: List[InferenceTable], draw=False):
+def detect_tables_on_page(image_path: Path, draw=False):
     mask = cv2.imread(str(image_path.absolute()))
     image = Image(path=image_path, pdf_page_shape=[mask.shape[1], mask.shape[0]])
     image.shape = mask.shape[:2]

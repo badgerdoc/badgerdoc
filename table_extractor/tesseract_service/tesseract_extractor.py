@@ -26,10 +26,17 @@ class TextExtractor:
 
     #TODO: Add support of zero values
     def extract(self, x=None, y=None, w=None, h=None) -> Tuple:
-        if all([x, y, w, h]):
+        if all([e is not None for e in [x, y, w, h]]):
             return self._extract_from_rect(x, y, w, h)
         else:
             return self._extract()
+
+    def extract_region(self, x, y, w, h) -> Tuple:
+        self.api.SetRectangle(x, y, w, h)
+        text = self.api.GetUTF8Text()
+        conf = self.api.MeanTextConf()
+        regions = self.api.GetRegions()
+        return text, conf, regions
 
     def close(self):
         self.api.End()
