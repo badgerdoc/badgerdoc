@@ -155,7 +155,7 @@ class StructuredTableHeadered(StructuredTable):
     header: List[List[CellLinked]] = field(default_factory=list)
 
     @staticmethod
-    def from_structured_and_header(table: StructuredTable, header: List[List[CellLinked]]):
+    def from_structured_and_rows(table: StructuredTable, header: List[List[CellLinked]]):
         header_row_nums = set()
         for row in header:
             for cell in row:
@@ -169,6 +169,16 @@ class StructuredTableHeadered(StructuredTable):
             header=header
         )
 
+    def actualize_header_with_cols(self, header_cols: List[List[CellLinked]]):
+        header_col_nums = set()
+        for col in header_cols:
+            for cell in col:
+                header_col_nums.add(cell.col)
+
+        body_cells = [cell for cell in self.cells if cell.col not in header_col_nums]
+
+        self.header.extend(header_cols)
+        self.cells = body_cells
 
 
 @dataclass

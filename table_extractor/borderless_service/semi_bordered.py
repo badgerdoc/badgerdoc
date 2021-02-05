@@ -390,7 +390,7 @@ def parse_header(roi: TableROI, img):
         assert composite_header_bot_roi.shape == composite_header_bot_img.shape[:2]
         return regular_header_roi, composite_header_top_roi, composite_header_bot_roi
     else:
-        logging.warning('Concept separator is not found')
+        logger.warning('Concept separator is not found')
         return None, None, None
 
 

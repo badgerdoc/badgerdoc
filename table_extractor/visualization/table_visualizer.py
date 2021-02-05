@@ -7,7 +7,8 @@ import numpy
 
 from table_extractor.bordered_service.models import InferenceTable
 from table_extractor.cascade_rcnn_service.utils import has_image_extension
-from table_extractor.model.table import StructuredTable, BorderBox, TextField, Table, StructuredTableHeadered
+from table_extractor.model.table import StructuredTable, BorderBox, TextField, Table, StructuredTableHeadered, \
+    CellLinked
 
 LOGGER = logging.getLogger(__name__)
 
@@ -18,7 +19,7 @@ INFERENCE_THICKNESS = 3
 
 INFERENCE_COLOR = (255, 0, 0)
 
-HEADER_CELL_COLOR = (0, 128, 255)
+HEADER_CELL_COLOR = (0, 128, 128)
 
 CELL_WITHOUT_TEXT_COLOR = (0, 128, 128)
 
@@ -40,6 +41,15 @@ def draw_text_boxes(img: numpy.ndarray, text_fields: List[TextField]):
         text_box_color = (0, 255, 0)
         text_box_thickness = 3
         _draw_rectangle(text_box_color, text_box_thickness, img, text_field.bbox)
+
+
+def draw_cell_scores(img: numpy.ndarray, cells_scores: List[Tuple[CellLinked, float, float]]):
+    text_box_thickness = 3
+    for cell, header_score, non_header_score in cells_scores:
+        if header_score > 0:
+            _draw_rectangle(HEADER_CELL_COLOR, text_box_thickness, img, cell)
+        else:
+            _draw_rectangle(CELL_WITH_TEXT_COLOR, 1, img, cell)
 
 
 def draw_inference(img: numpy.ndarray, inference_result: List[InferenceTable]):
@@ -107,6 +117,8 @@ def draw_object(img, obj: Union[List[Table], List[InferenceTable], List[TextFiel
         draw_structured_table(img, obj)
     elif isinstance(obj[0], TextField):
         draw_text_boxes(img, obj)
+    elif isinstance(obj[0], Tuple):
+        draw_cell_scores(img, obj)
     else:
         raise ValueError(f"Unsupported type for visualization: {type(obj[0])}")
     return img

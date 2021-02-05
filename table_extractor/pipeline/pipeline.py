@@ -10,6 +10,7 @@ from tesserocr import PSM
 from table_extractor.bordered_service.bordered_tables_detection import detect_tables_on_page
 from table_extractor.bordered_service.models import InferenceTable, Page
 from table_extractor.cascade_rcnn_service.inference import CascadeRCNNInferenceService
+from table_extractor.headers.header_utils import HeaderChecker
 from table_extractor.inference_table_service.constuct_table_from_inference import construct_table_from_cells, \
     find_grid_table, reconstruct_table_from_grid
 from table_extractor.model.table import StructuredTable, TextField, Cell, Table, BorderBox, CellLinked, \
@@ -28,11 +29,14 @@ logger = logging.getLogger(__name__)
 
 def cnt_ciphers(cells: List[Cell]):
     count = 0
+    all_chars_count = 0
     for cell in cells:
-        for char in "".join([tb.text for tb in cell.text_boxes]):
+        sentence = "".join([tb.text for tb in cell.text_boxes])
+        for char in sentence:
             if char in '0123456789':
                 count += 1
-    return count
+        all_chars_count += len(sentence)
+    return count / all_chars_count if all_chars_count else 0.
 
 
 def actualize_header(table: StructuredTable):
@@ -42,13 +46,13 @@ def actualize_header(table: StructuredTable):
     current_ciphers = count_ciphers
     for row in table_rows[1:]:
         count = cnt_ciphers(row)
-        if count / 5 > current_ciphers:
+        if count > current_ciphers:
             break
         else:
             header_candidates.append(row)
 
     if len(header_candidates) < len(table_rows):
-        return StructuredTableHeadered.from_structured_and_header(table, header_candidates)
+        return StructuredTableHeadered.from_structured_and_rows(table, header_candidates)
     return StructuredTableHeadered(
         bbox=table.bbox,
         cells=table.cells,
@@ -251,6 +255,39 @@ class PageProcessor:
         self.text_detector = text_detector
         self.visualizer = visualizer
         self.paddle_on = paddle_on
+        self.header_checker = HeaderChecker()
+
+    def analyse(self, series: List[CellLinked]):
+        # Check if series is header
+        headers = []
+        for cell in series:
+            header_score, _ = self.header_checker.get_cell_score(cell)
+            if header_score > 0:
+                headers.append(cell)
+        return len(headers) > (len(series) / 5) if len(series) > 5 else len(headers) > (len(series) / 2)
+
+    def create_header(self, series: List[List[CellLinked]], header_limit: int):
+        """
+        Search for headers based on cells contents
+        @param series: cols or rows of the table
+        @param table:
+        @param header_limit:
+        """
+        header_candidates = []
+        last_header = None
+        for idx, line in enumerate(series[:header_limit]):
+            if self.analyse(line):
+                header_candidates.append((idx, True, line))
+                last_header = idx
+            else:
+                header_candidates.append((idx, False, line))
+        if last_header is not None:
+            header = [line for idx, is_header, line in header_candidates[:last_header + 1]]
+        else:
+            header = []
+        if len(header) > 0.75 * len(series):
+            header = []
+        return header
 
     def extract_table_from_inference(self,
                                      img,
@@ -258,7 +295,8 @@ class PageProcessor:
                                      not_matched_text: List[TextField],
                                      image_shape: Tuple[int, int],
                                      image_path: Path) -> StructuredTable:
-        merged_t_fields = merge_closest_text_fields(not_matched_text)
+        merged_t_fields = merge_closest_text_fields(sorted(not_matched_text,
+                                                           key=lambda x: (x.bbox.top_left_y, x.bbox.top_left_x)))
 
         for cell in inf_table.tags:
             if cell.text_boxes and len(cell.text_boxes) == 1:
@@ -407,7 +445,22 @@ class PageProcessor:
         for table in page.tables:
             actualize_text(table, image_path)
 
-        page.tables = [actualize_header(table) for table in page.tables]
+        cell_header_scores = []
+        for table in page.tables:
+            cell_header_scores.extend(self.header_checker.get_cell_scores(table.cells))
+
+        self.visualizer.draw_object_and_save(img,
+                                             cell_header_scores,
+                                             output_path / 'cells_header' / f"{page.page_num}.png")
+
+        tables_with_header = []
+        for table in page.tables:
+            header_rows = self.create_header(table.rows, 6)
+            table_with_header = StructuredTableHeadered.from_structured_and_rows(table, header_rows)
+            header_cols = self.create_header(table.cols, 4)
+            table_with_header.actualize_header_with_cols(header_cols)
+            tables_with_header.append(table_with_header)
+        page.tables = tables_with_header
 
         with TextExtractor(str(image_path.absolute()), seg_mode=PSM.SPARSE_TEXT) as extractor:
             text_borders = [1]
