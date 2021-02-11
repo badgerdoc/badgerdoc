@@ -261,10 +261,12 @@ class PageProcessor:
         # Check if series is header
         headers = []
         for cell in series:
-            header_score, _ = self.header_checker.get_cell_score(cell)
-            if header_score > 0:
+            header_score, cell_score = self.header_checker.get_cell_score(cell)
+            if header_score > cell_score:
                 headers.append(cell)
-        return len(headers) > (len(series) / 5) if len(series) > 5 else len(headers) > (len(series) / 2)
+
+        thresh = 5
+        return len(headers) > (len(series) / thresh) if len(series) > thresh else len(headers) > (len(series) / 2)
 
     def create_header(self, series: List[List[CellLinked]], header_limit: int):
         """
@@ -281,12 +283,17 @@ class PageProcessor:
                 last_header = idx
             else:
                 header_candidates.append((idx, False, line))
+
         if last_header is not None:
             header = [line for idx, is_header, line in header_candidates[:last_header + 1]]
         else:
             header = []
+
         if len(header) > 0.75 * len(series):
+            with open('cases75.txt', 'a') as f:
+                f.write(str(series) + '\n')
             header = []
+
         return header
 
     def extract_table_from_inference(self,
@@ -445,6 +452,7 @@ class PageProcessor:
         for table in page.tables:
             actualize_text(table, image_path)
 
+        # TODO: Headers should be created only once
         cell_header_scores = []
         for table in page.tables:
             cell_header_scores.extend(self.header_checker.get_cell_scores(table.cells))
@@ -457,7 +465,8 @@ class PageProcessor:
         for table in page.tables:
             header_rows = self.create_header(table.rows, 6)
             table_with_header = StructuredTableHeadered.from_structured_and_rows(table, header_rows)
-            header_cols = self.create_header(table.cols, 4)
+            header_cols = self.create_header(table.cols, 5)
+            # TODO: Cells should be actualized only once
             table_with_header.actualize_header_with_cols(header_cols)
             tables_with_header.append(table_with_header)
         page.tables = tables_with_header
