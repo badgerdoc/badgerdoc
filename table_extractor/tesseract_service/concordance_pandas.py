@@ -1,12 +1,13 @@
 import string
 from nltk.stem import WordNetLemmatizer
+from nltk.corpus import stopwords
 from nltk import word_tokenize
 import pandas as pd
 from datetime import datetime
 
 save_path = '../model'
 stemmer = WordNetLemmatizer()
-stoplist = pd.Series('for a of or be with the at and to in is if on no not an it who'.split())
+stoplist = stopwords.words('english')
 
 
 def read_from_file(file):
