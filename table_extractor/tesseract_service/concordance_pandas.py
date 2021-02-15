@@ -4,6 +4,7 @@ from nltk import word_tokenize
 import pandas as pd
 from datetime import datetime
 
+save_path = '../model'
 stemmer = WordNetLemmatizer()
 stoplist = pd.Series('for a of or be with the at and to in is if on no not an it who'.split())
 
@@ -54,7 +55,7 @@ def run_lemmatizer(name):
     df = pd.DataFrame(sequence, columns=['words'])
     df = count_probability(df)
     df.rename_axis(index={'words': f'{name}'}, inplace=True)
-    # df.to_json(f'{name}.json', orient='index')
+    df.to_json(f'{save_path}/{name}.json', orient='index')
     return df
 
 
