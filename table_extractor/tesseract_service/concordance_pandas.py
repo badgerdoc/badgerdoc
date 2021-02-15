@@ -17,13 +17,13 @@ def read_from_file(file):
 
 
 def translate(word) -> str:
-    return word.translate(str.maketrans('', '', string.punctuation)).strip()
+    return word.translate(str.maketrans('', '', string.punctuation))
 
 
 def count_probability(df: pd.DataFrame) -> pd.DataFrame:
     # Create DataFrame consisting of words
     word_sequence = df['words'].map(
-        lambda x: word_tokenize(x.lower())).explode().apply(translate)
+        lambda x: word_tokenize(x.lower().strip())).explode()
 
     # Remove NaN
     word_sequence = word_sequence[word_sequence.astype(bool)]
@@ -63,7 +63,7 @@ def run_lemmatizer(name):
 start = datetime.now()
 dfh = run_lemmatizer('headers')
 # Drop digits in headers
-dfh = dfh[~dfh['words'].str.isdigit()]
+# dfh = dfh[~dfh['words'].str.isdigit()]
 dfc = run_lemmatizer('cells')
 
 print(datetime.now() - start)
