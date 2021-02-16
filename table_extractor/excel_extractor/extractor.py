@@ -3,6 +3,7 @@ import sys
 from typing import Union, Generator, List
 from enum import Enum
 from pathlib import Path
+from dataclasses import dataclass
 
 from openpyxl import load_workbook
 from openpyxl.worksheet.worksheet import Worksheet
@@ -16,7 +17,7 @@ class Output(Enum):
     JSON = 'json'
     PNG = 'png'
 
-
+@dataclass
 class ExcelExtractor:
     """
     Render excel table to png file
@@ -24,6 +25,11 @@ class ExcelExtractor:
 
     tables = {}
     ws_tables = []
+    coordinates = {}
+
+    coordinates_offset_x: int = 1
+    coordinates_offset_y: int = 1
+
 
     def extract(self, file: Union[str, Path]) -> dict:
         """
@@ -88,10 +94,10 @@ class ExcelExtractor:
                             rowspan = merged_range.size['rows']
 
                 cells[(cell.column, cell.row)] = (
-                    sheet.column_dimensions[column_letter].width,
-                    sheet.row_dimensions[cell.row].height,
+                    self.coordinates[cell.column, cell.row],
                     colspan,
-                    rowspan
+                    rowspan,
+                    cell.value
                 )
         return cells
 
@@ -105,19 +111,41 @@ class ExcelExtractor:
         table['start'] = (table_started.column, table_started.row)
         table['cells'] = self.fill_cells(sheet, table_started, cell)
         table['end'] = max(table['cells'].keys())
+        table['dimensions'] = (
+            self.coordinates[table['start']],
+            self.coordinates[table['end']]
+        )
         return table
 
     def finish_table(self, sheet, cell, table_started):
         self.ws_tables.append(self.get_table(sheet, cell, table_started))
 
+    def fill_coordinates(self, sheet):
+        y_counter = 0
+        for row in sheet.iter_rows():
+            x_counter = 0
+            for cell in row:
+                cell_width = sheet.column_dimensions[cell.coordinate[0]].width
+                cell_height = sheet.row_dimensions[cell.row].height
+                self.coordinates[(cell.column, cell.row)] = {
+                    'top_left': (x_counter + self.coordinates_offset_x, y_counter + self.coordinates_offset_y),
+                    'top_right': (
+                    x_counter + cell_width - self.coordinates_offset_x, y_counter + self.coordinates_offset_y),
+                    'bottom_left': (
+                    x_counter + self.coordinates_offset_x, y_counter + cell_height - self.coordinates_offset_y),
+                    'bottom_right': (x_counter + cell_width - self.coordinates_offset_x,
+                                     y_counter + cell_height - self.coordinates_offset_y),
+                }
+
     def parse_sheet(self, sheet: Worksheet) -> list:
         tables = []
+        self.fill_coordinates(sheet)
         for row in sheet.iter_rows():
-
             table_started = None
 
             for cell in row:
                 # print(cell)
+
                 if cell.value:
                     if self.in_table(cell):
                         # print('in table')
