@@ -1,6 +1,6 @@
 import sys
 
-from typing import Union, Generator
+from typing import Union, Generator, List
 from enum import Enum
 from pathlib import Path
 
@@ -39,12 +39,17 @@ class ExcelExtractor:
         return self.tables
 
     def _check_interception(self, attr, table, cell) -> bool:
-        return getattr(table['end'], attr) >= getattr(cell, attr) >= getattr(table['start'], attr)
+        index = int(attr == 'row')
+        return table['end'][index] >= getattr(cell, attr) >= table['start'][index]
 
-    def iter_subtable_rows(self,sheet, first_cell: Cell) -> Generator:
-        for row in sheet.iter_rows(min_row=first_cell.row, min_col=first_cell.column):
-            if not row[0].value and not isinstance(row[0], MergedCell):
-                break
+    def is_merged(self, cell) -> bool:
+        return isinstance(cell, MergedCell)
+
+    def iter_subtable_rows(self,sheet, first_cell: Cell, cell) -> Generator:
+        max_col = cell.column if sheet.max_column == cell.column else cell.column-1
+        for row in sheet.iter_rows(min_row=first_cell.row, min_col=first_cell.column, max_col=max_col):
+            if not row[0].value and not self.is_merged(row[0]):
+                return
             yield row
 
     def in_table(self, cell: Cell) -> bool:
@@ -65,15 +70,32 @@ class ExcelExtractor:
         row_number -= 1
         return sheet.cell(row=row_number, column=column)
 
-    def fill_cells(self, sheet: Worksheet, first_cell: Cell, current_cell: Cell) -> dict:
+    def fill_cells(self, sheet: Worksheet, first_cell: Cell, cell: Cell) -> dict:
         cells = {}
-        for row in self.iter_subtable_rows(sheet, first_cell):
+        for row in self.iter_subtable_rows(sheet, first_cell, cell):
+            # if sheet.title == 'Sheet 1': print(row)
             for cell in row:
+                colspan = 0
+                rowspan = 0
+
+                if self.is_merged(cell):
+                    column_letter = cell.coordinate[0]
+                else:
+                    column_letter = cell.column_letter
+                    for merged_range in sheet.merged_cells.ranges:
+                        if merged_range.start_cell == cell:
+                            colspan = merged_range.size['columns']
+                            rowspan = merged_range.size['rows']
+
                 cells[(cell.column, cell.row)] = (
-                    sheet.column_dimensions[cell.column].width,
-                    sheet.row_dimensions[cell.row].height
+                    sheet.column_dimensions[column_letter].width,
+                    sheet.row_dimensions[cell.row].height,
+                    colspan,
+                    rowspan
                 )
         return cells
+
+
 
     def get_table(self, sheet: Worksheet, cell: Cell, table_started: Cell) -> dict:
         """
@@ -86,18 +108,7 @@ class ExcelExtractor:
         return table
 
     def finish_table(self, sheet, cell, table_started):
-        column = cell.column if cell.column == sheet.max_column else cell.column -1
-        self.ws_tables.append({
-            'start': table_started,
-            'end': sheet.cell(
-                column=column,
-                row=self.get_end_cell(
-                    sheet,
-                    table_started,
-                    cell
-                ).row
-            )
-        })
+        self.ws_tables.append(self.get_table(sheet, cell, table_started))
 
     def parse_sheet(self, sheet: Worksheet) -> list:
         tables = []
@@ -122,7 +133,6 @@ class ExcelExtractor:
                 else:
                     # print('ts',table_started)
                     if isinstance(cell, MergedCell):
-                        print(cell)
                         continue
 
                     if table_started:
@@ -134,4 +144,5 @@ class ExcelExtractor:
 
 if __name__ == "__main__":
     ext = ExcelExtractor()
-    ext.extract(sys.argv[1])
+    print(ext.extract(sys.argv[1])['Sheet 1'][0]['cells'])
+    #
