@@ -48,7 +48,6 @@ def excel_to_structured(excel_tables_sheets: dict) -> dict:
     for sheet, sheet_tables in excel_tables_sheets.items():
         tables.setdefault(sheet, [])
         for excel_table in sheet_tables:
-            print(excel_table['dimensions'])
             table = StructuredTable(
                 cells=convert_cells(excel_table['cells']),
                 bbox=BorderBox(

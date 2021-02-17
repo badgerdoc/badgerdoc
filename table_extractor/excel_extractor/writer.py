@@ -35,7 +35,6 @@ class ExcelWriter(BaseWriter):
                      bottom=Side(style='thick'))
 
         for i, (sheet, tables) in enumerate(self.data.items()):
-            print(i, sheet)
             if not i:
                 ws = self.wb.active
             else:

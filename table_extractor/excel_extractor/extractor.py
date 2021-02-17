@@ -177,5 +177,4 @@ class ExcelExtractor:
 
 if __name__ == "__main__":
     ext = ExcelExtractor()
-    print(ext.extract(sys.argv[1])['Sheet 1'][0]['cells'])
     #
