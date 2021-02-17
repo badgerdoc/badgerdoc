@@ -34,7 +34,7 @@ class ExcelWriter(BaseWriter):
                      top=Side(style='thick'),
                      bottom=Side(style='thick'))
 
-        for i, (sheet, tables) in enumerate(self.data):
+        for i, (sheet, tables) in enumerate(self.data.items()):
             print(i, sheet)
             if not i:
                 ws = self.wb.active
@@ -51,4 +51,4 @@ class ExcelWriter(BaseWriter):
                 for cell in table.cells:
                     ws.cell(row=cell.row, column=cell.col, value=cell.text_boxes[0].text)
 
-        self.wb.save('ex.xlsx')
+        self.wb.save(self.outpath)
