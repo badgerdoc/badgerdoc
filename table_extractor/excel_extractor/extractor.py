@@ -97,7 +97,7 @@ class ExcelExtractor:
                     self.coordinates[cell.column, cell.row],
                     colspan,
                     rowspan,
-                    cell.value
+                    str(cell.value)
                 )
         return cells
 
@@ -124,9 +124,12 @@ class ExcelExtractor:
         y_counter = 0
         for row in sheet.iter_rows():
             x_counter = 0
+            max_height_cell = 0
             for cell in row:
                 cell_width = sheet.column_dimensions[cell.coordinate[0]].width
                 cell_height = sheet.row_dimensions[cell.row].height
+                if cell_height > max_height_cell:
+                    max_height_cell = cell_height
                 self.coordinates[(cell.column, cell.row)] = {
                     'top_left': (x_counter + self.coordinates_offset_x, y_counter + self.coordinates_offset_y),
                     'top_right': (
@@ -136,6 +139,8 @@ class ExcelExtractor:
                     'bottom_right': (x_counter + cell_width - self.coordinates_offset_x,
                                      y_counter + cell_height - self.coordinates_offset_y),
                 }
+                x_counter += cell_width
+            y_counter += max_height_cell
 
     def parse_sheet(self, sheet: Worksheet) -> list:
         tables = []
