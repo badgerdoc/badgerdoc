@@ -1,4 +1,5 @@
 from typing import Dict
+from copy import copy
 
 from table_extractor.excel_extractor.constants import (
     HEADER_FONT,
@@ -7,7 +8,7 @@ from table_extractor.excel_extractor.constants import (
 )
 from table_extractor.excel_extractor.converter import (
     get_headers_using_structured,
-    get_header_using_styles
+    get_header_using_styles,
 )
 from openpyxl import Workbook
 
@@ -20,7 +21,7 @@ class BaseWriter:
     def __init__(self, data: Dict[str, list], outpath: str):
         self.data = data
         self.outpath = outpath
-        self._converted_data = None
+        self._tables_with_headers = None
 
     def write(self):
         raise NotImplemented
@@ -40,27 +41,38 @@ class ExcelWriter(BaseWriter):
 
     def write(self):
 
-        for i, (sheet, tables) in enumerate(self.converted_data.items()):
+        for i, (sheet, tables) in enumerate(self.tables_with_headers.items()):
             if not i:
                 ws = self.wb.active
             else:
                 ws = self.wb.create_sheet(sheet)
 
             for table in tables:
-                for header_cells in table.header:
-                    for cell in header_cells:
-                        added_cell = ws.cell(row=cell.row, column=cell.col, value=cell.text_boxes[0].text)
+                if not table['headers']:
+                    processed_table = get_headers_using_structured(table)
+                    for header_cells in processed_table.header:
+                        for cell in header_cells:
+                            added_cell = ws.cell(row=cell.row, column=cell.col, value=cell.text_boxes[0].text)
+                            added_cell.fill = HEADER_FILL
+                            added_cell.font = HEADER_FONT
+
+                    for cell in processed_table.cells:
+                        ws.cell(row=cell.row, column=cell.col, value=cell.text_boxes[0].text)
+                else:
+                    for _cell in table['headers']:
+                        cell = _cell[-1]
+                        added_cell = ws.cell(row=cell.row, column=cell.column, value=cell.value)
                         added_cell.fill = HEADER_FILL
                         added_cell.font = HEADER_FONT
 
-                for cell in table.cells:
-                    ws.cell(row=cell.row, column=cell.col, value=cell.text_boxes[0].text)
+                    for _cell in table['cells'].values():
+                        cell = _cell[-1]
+                        ws.cell(row=cell.row, column=cell.column, value=cell.value)
 
         self.wb.save(self.outpath)
 
     @property
-    def converted_data(self) -> dict:
-        if not self._converted_data:
-            self._converted_data = get_header_using_styles(self.data)
-            self._converted_data = get_headers_using_structured(self.data)
-        return self._converted_data
+    def tables_with_headers(self) -> dict:
+        if not self._tables_with_headers:
+            self._tables_with_headers = get_header_using_styles(self.data)
+        return self._tables_with_headers
