@@ -17,6 +17,7 @@ class Output(Enum):
     JSON = 'json'
     PNG = 'png'
 
+
 @dataclass
 class ExcelExtractor:
     """
@@ -29,7 +30,6 @@ class ExcelExtractor:
 
     coordinates_offset_x: int = 1
     coordinates_offset_y: int = 1
-
 
     def extract(self, file: Union[str, Path]) -> dict:
         """
@@ -51,8 +51,8 @@ class ExcelExtractor:
     def is_merged(self, cell) -> bool:
         return isinstance(cell, MergedCell)
 
-    def iter_subtable_rows(self,sheet, first_cell: Cell, cell) -> Generator:
-        max_col = cell.column if sheet.max_column == cell.column else cell.column-1
+    def iter_subtable_rows(self, sheet, first_cell: Cell, cell) -> Generator:
+        max_col = cell.column if sheet.max_column == cell.column else cell.column - 1
         for row in sheet.iter_rows(min_row=first_cell.row, min_col=first_cell.column, max_col=max_col):
             if not row[0].value and not self.is_merged(row[0]):
                 return
@@ -72,7 +72,7 @@ class ExcelExtractor:
         for row in self.iter_subtable_rows(sheet, first_cell):
             row_number += 1
 
-        column = current_cell.column if current_cell.column == sheet.max_column else current_cell.column -1
+        column = current_cell.column if current_cell.column == sheet.max_column else current_cell.column - 1
         row_number -= 1
         return sheet.cell(row=row_number, column=column)
 
@@ -97,11 +97,10 @@ class ExcelExtractor:
                     self.coordinates[cell.column, cell.row],
                     colspan,
                     rowspan,
-                    str(cell.value)
+                    str(cell.value),
+                    cell,
                 )
         return cells
-
-
 
     def get_table(self, sheet: Worksheet, cell: Cell, table_started: Cell) -> dict:
         """
@@ -133,11 +132,13 @@ class ExcelExtractor:
                 self.coordinates[(cell.column, cell.row)] = {
                     'top_left': (x_counter + self.coordinates_offset_x, y_counter + self.coordinates_offset_y),
                     'top_right': (
-                    x_counter + cell_width - self.coordinates_offset_x, y_counter + self.coordinates_offset_y),
+                        x_counter + cell_width - self.coordinates_offset_x, y_counter + self.coordinates_offset_y),
                     'bottom_left': (
-                    x_counter + self.coordinates_offset_x, y_counter + cell_height - self.coordinates_offset_y),
+                        x_counter + self.coordinates_offset_x, y_counter + cell_height - self.coordinates_offset_y),
                     'bottom_right': (x_counter + cell_width - self.coordinates_offset_x,
                                      y_counter + cell_height - self.coordinates_offset_y),
+                    'width': cell_width,
+                    'height': cell_height
                 }
                 x_counter += cell_width
             y_counter += max_height_cell

@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict
 from table_extractor.model.table import (
     StructuredTable,
     StructuredTableHeadered,
@@ -7,8 +7,21 @@ from table_extractor.model.table import (
     TextField
 )
 from table_extractor.headers.header_utils import HeaderChecker
+from openpyxl.cell.cell import Cell
 
 header_checker = HeaderChecker()
+
+
+def should_skip_attr(cells: Dict[tuple, tuple], cell: Cell, another_cell: Cell, key, style) -> bool:
+    if key.startswith('__') or key == 'copy':
+        return True
+
+    if style == 'border':
+        top = key == 'top' and (cell.row == 1 or another_cell.row == 1)
+        bottom = key == 'bottom' and (cell.row == max(cells.keys())[1] or another_cell == max(cells.keys())[1])
+        left = key == 'left' and (cell.column == 1 or another_cell.column == 1)
+        right = key == 'right' and (cell.row == max(cells.keys())[0] or another_cell == max(cells.keys())[0])
+        return any([top, bottom, left, right])
 
 
 def convert_cells(cells: dict) -> list:
@@ -22,7 +35,7 @@ def convert_cells(cells: dict) -> list:
                 coords_in_px['bottom_right'][0],
                 coords_in_px['bottom_right'][1]
             ),
-            text=params[-1]
+            text=params[-2]
         )
         new_cell = CellLinked(
             coords_in_px['top_left'][0],
@@ -96,9 +109,9 @@ def analyse(series: List[CellLinked]):
     return len(headers) > (len(series) / 5) if len(series) > 5 else len(headers) > (len(series) / 2)
 
 
-def get_headers(tables: dict) -> dict:
+def get_headers_using_structured(tables: dict) -> dict:
     tables_with_header = {}
-    for sheet, sheet_tables in tables.items():
+    for sheet, sheet_tables in excel_to_structured(tables).items():
         tables_with_header.setdefault(sheet, [])
         for table in sheet_tables:
             header_rows = create_header(table.rows, 6)
@@ -106,5 +119,55 @@ def get_headers(tables: dict) -> dict:
             header_cols = create_header(table.cols, 4)
             table_with_header.actualize_header_with_cols(header_cols)
             tables_with_header[sheet].append(table_with_header)
+
+    return tables_with_header
+
+
+def get_header_using_styles(tables: dict, styles_to_check: List = None, matched_counts: int = 1) -> dict:
+    if not styles_to_check:
+        styles_to_check = ('font', 'fill', 'border')
+
+    tables_with_header = {}
+    for sheet, sheet_tables in tables.items():
+        tables_with_header.setdefault(sheet, [])
+        for table in sheet_tables:
+            groups = ([], [], [])
+            for _, _, _, _, cell in table['cells'].values():
+
+                if not cell.has_style:
+                    groups[2].append(cell)
+                    continue
+                if not groups[0]:
+                    groups[0].append(cell)
+                    continue
+
+                matched_styles_count = 0
+                for style in styles_to_check:
+
+                    cell_attr = getattr(cell, style)
+                    group_attr = getattr(groups[0][0], style)
+                    if all([getattr(cell_attr, key) == getattr(group_attr, key) for key in dir(cell_attr) if
+                            not should_skip_attr(table['cells'], cell, groups[0][0], key, style)]):
+                        matched_styles_count += 1
+                    if sheet == 'Sheet': print(cell, matched_styles_count)
+                if len(styles_to_check) - matched_styles_count <= matched_counts:
+                    groups[0].append(cell)
+                else:
+                    groups[1].append(cell)
+
+            max_first_row_col = 0
+            headers = None
+            import pprint
+            if sheet == 'Sheet 2': pprint.pprint(groups)
+            for group in groups:
+                max_rows_cols = len([cell for cell in group if
+                                     cell.row == min(table['cells'].keys())[1] or cell.column ==
+                                     min(table['cells'].keys())[0]])
+                if max_rows_cols > max_first_row_col:
+                    headers = group
+                    max_first_row_col = max_rows_cols
+            if headers:
+                table['headers'] = headers
+                tables_with_header[sheet].append(table)
 
     return tables_with_header
