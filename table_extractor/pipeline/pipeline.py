@@ -257,16 +257,23 @@ class PageProcessor:
         self.paddle_on = paddle_on
         self.header_checker = HeaderChecker()
 
-    def analyse(self, series: List[CellLinked]):
+    def analyse(self, series: List[CellLinked], idx: int):
         # Check if series is header
         headers = []
+        first_line = False
         for cell in series:
             header_score, cell_score = self.header_checker.get_cell_score(cell)
             if header_score > cell_score:
                 headers.append(cell)
+            if cell.col == 0 and cell.row == 0:
+                first_line = True
 
+        if first_line:
+            empty_cells_num = self._count_empty_cells(series)
+            return len(headers) > (len(series) - empty_cells_num) / 2
         thresh = 5
-        return len(headers) > (len(series) / thresh) if len(series) > thresh else len(headers) > (len(series) / 2)
+        # return len(headers) > (len(series) / thresh) if len(series) > thresh else len(headers) > (len(series) / 2)
+        return len(headers) > (len(series) / 2)
 
     def create_header(self, series: List[List[CellLinked]], header_limit: int):
         """
@@ -278,7 +285,7 @@ class PageProcessor:
         header_candidates = []
         last_header = None
         for idx, line in enumerate(series[:header_limit]):
-            if self.analyse(line):
+            if self.analyse(line, idx):
                 header_candidates.append((idx, True, line))
                 last_header = idx
             else:
@@ -295,6 +302,10 @@ class PageProcessor:
             header = []
 
         return header
+
+    @staticmethod
+    def _count_empty_cells(series: List[CellLinked]):
+        return len([True for cell in series if cell.is_empty()])
 
     def extract_table_from_inference(self,
                                      img,
