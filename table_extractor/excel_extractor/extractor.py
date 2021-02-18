@@ -79,7 +79,6 @@ class ExcelExtractor:
     def fill_cells(self, sheet: Worksheet, first_cell: Cell, cell: Cell) -> dict:
         cells = {}
         for row in self.iter_subtable_rows(sheet, first_cell, cell):
-            # if sheet.title == 'Sheet 1': print(row)
             for cell in row:
                 colspan = 0
                 rowspan = 0
@@ -150,11 +149,8 @@ class ExcelExtractor:
             table_started = None
 
             for cell in row:
-                # print(cell)
-
                 if cell.value:
                     if self.in_table(cell):
-                        # print('in table')
                         continue
 
                     if table_started:
