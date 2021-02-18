@@ -1,10 +1,15 @@
-from typing import List, Dict
-from dataclasses import dataclass
+from typing import Dict
 
-from table_extractor.model.table import StructuredTableHeadered
-
+from table_extractor.excel_extractor.constants import (
+    HEADER_FONT,
+    HEADER_BORDER,
+    HEADER_FILL
+)
+from table_extractor.excel_extractor.converter import (
+    get_headers_using_structured,
+    get_header_using_styles
+)
 from openpyxl import Workbook
-from openpyxl.styles import PatternFill, Border, Side, Alignment, Protection, Font
 
 
 class BaseWriter:
@@ -15,8 +20,13 @@ class BaseWriter:
     def __init__(self, data: Dict[str, list], outpath: str):
         self.data = data
         self.outpath = outpath
+        self._converted_data = None
 
     def write(self):
+        raise NotImplemented
+
+    @property
+    def converted_data(self) -> dict:
         raise NotImplemented
 
 
@@ -26,15 +36,11 @@ class ExcelWriter(BaseWriter):
     """
     wb = Workbook()
 
-    def write(self):
-        header_font = Font(bold=True)
-        header_fill = PatternFill(start_color="00C0C0C0", end_color="00C0C0C0", fill_type = "solid")
-        header_border = thin_border = Border(left=Side(style='thick'),
-                     right=Side(style='thick'),
-                     top=Side(style='thick'),
-                     bottom=Side(style='thick'))
+    machine_learning_used = False
 
-        for i, (sheet, tables) in enumerate(self.data.items()):
+    def write(self):
+
+        for i, (sheet, tables) in enumerate(self.converted_data.items()):
             if not i:
                 ws = self.wb.active
             else:
@@ -44,10 +50,17 @@ class ExcelWriter(BaseWriter):
                 for header_cells in table.header:
                     for cell in header_cells:
                         added_cell = ws.cell(row=cell.row, column=cell.col, value=cell.text_boxes[0].text)
-                        added_cell.fill = header_fill
-                        added_cell.font = header_font
+                        added_cell.fill = HEADER_FILL
+                        added_cell.font = HEADER_FONT
 
                 for cell in table.cells:
                     ws.cell(row=cell.row, column=cell.col, value=cell.text_boxes[0].text)
 
         self.wb.save(self.outpath)
+
+    @property
+    def converted_data(self) -> dict:
+        if not self._converted_data:
+            self._converted_data = get_header_using_styles(self.data)
+            self._converted_data = get_headers_using_structured(self.data)
+        return self._converted_data
