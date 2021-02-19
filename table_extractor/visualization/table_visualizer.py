@@ -64,6 +64,8 @@ def draw_inference(img: numpy.ndarray, inference_result: List[InferenceTable]):
                     TEXT_THICKNESS)
         for box in inference_table.tags:
             _draw_rectangle(INFERENCE_COLOR, INFERENCE_THICKNESS, img, box)
+        for header in inference_table.header_boxes:
+            _draw_rectangle(HEADER_CELL_COLOR, INFERENCE_THICKNESS, img, header)
 
 
 def draw_table(img: numpy.ndarray, tables: List[Table]):

@@ -4,12 +4,12 @@ from typing import Dict, List, Any, Tuple
 
 import cv2
 
-from table_extractor.bordered_service.models import InferenceTable, match_cells_and_tables
+from table_extractor.bordered_service.models import InferenceTable, match_cells_and_tables, match_headers_and_tables
 from table_extractor.model.table import BorderBox, Cell
 from table_extractor.cascade_rcnn_service.utils import extract_boxes_from_result, has_image_extension
 from mmdet.apis import init_detector, inference_detector
 
-CLASS_NAMES = ('Bordered', 'Cell', 'Borderless', 'Table_annotation', 'Header')
+CLASS_NAMES = ('Bordered', 'Cell', 'Borderless', 'Header', 'Table_annotation')
 DEFAULT_THRESHOLD = 0.3
 TABLE_TAGS = ("Bordered", "Borderless")
 CELL_TAG = 'Cell'
@@ -62,12 +62,15 @@ def _raw_to_cell(raw_cell: Dict[str, Any]) -> Cell:
 def inference_result_to_boxes(inference_page_result: List[Dict[str, Any]]) \
         -> Tuple[List[InferenceTable], List[BorderBox]]:
     raw_tables = [tag for tag in inference_page_result if tag['label'] in TABLE_TAGS]
+    raw_headers = [_raw_to_cell(tag) for tag in inference_page_result if tag['label'] == 'Header']
     inference_tables: List[InferenceTable] = \
         [_raw_to_table(raw_table) for raw_table in raw_tables]
 
     filtered = _filter_double_detection(inference_tables)
 
     raw_cells = [_raw_to_cell(cell) for cell in inference_page_result if cell['label'] == CELL_TAG]
+
+    _ = match_headers_and_tables(raw_headers, filtered)
 
     not_matched = match_cells_and_tables(raw_cells, filtered)
 
