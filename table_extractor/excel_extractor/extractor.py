@@ -126,6 +126,8 @@ class ExcelExtractor:
             for cell in row:
                 cell_width = sheet.column_dimensions[cell.coordinate[0]].width
                 cell_height = sheet.row_dimensions[cell.row].height
+                cell_width = cell_width if cell_width else 65
+                cell_height = cell_height if cell_height else 18
                 if cell_height > max_height_cell:
                     max_height_cell = cell_height
                 self.coordinates[(cell.column, cell.row)] = {

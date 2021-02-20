@@ -123,12 +123,9 @@ def get_header_using_styles(tables: dict, styles_to_check: List = None, matched_
     for sheet, sheet_tables in tables.items():
         tables_with_header.setdefault(sheet, [])
         for table in sheet_tables:
-            groups = ([], [], [])
+            groups = ([], [])
             for dims, colspan, rowspan, text, cell in table['cells'].values():
 
-                if not cell.has_style:
-                    groups[2].append((dims, colspan, rowspan, text, cell))
-                    continue
                 if not groups[0]:
                     groups[0].append((dims, colspan, rowspan, text, cell))
                     continue
@@ -146,7 +143,6 @@ def get_header_using_styles(tables: dict, styles_to_check: List = None, matched_
                     groups[0].append((dims, colspan, rowspan, text, cell))
                 else:
                     groups[1].append((dims, colspan, rowspan, text, cell))
-
             table['headers'] = None
             if len([group for group in groups if group]) == 1:
                 tables_with_header[sheet].append(table)
