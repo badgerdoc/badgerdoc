@@ -4,11 +4,16 @@ export IMG_DIR=images
 mkdir -p $MODELS_DIR
 mkdir -p $IMG_DIR
 
+python -m nltk.downloader stopwords
+python -m nltk.downloader words
+python -m nltk.downloader punkt
+python -m nltk.downloader wordnet
+
 # Demo image
 wget --output-document $IMG_DIR/demo.png https://raw.githubusercontent.com/DevashishPrasad/CascadeTabNet/master/Demo/demo.png
 
-gdown "https://drive.google.com/uc?id=1EsrTmKm5_Px2XpDMUiERkv0HSEfstRVg" -O $MODELS_DIR/epoch_41_acc_94_mmd_v2.pth && \
-    wget --output-document $MODELS_DIR/cascadetabnet_config.py https://gist.githubusercontent.com/EgorOs/6bc38bc9b4c7b9eb6dbe0b9cd4ab2915/raw/e511f1e488046da173e5061b0476d11244c03a47/gistfile1.txt && \
+rm -rf $MODELS_DIR && mkdir $MODELS_DIR && \
+    gdown "https://drive.google.com/uc?id=1XHVYIHuLQCboFn5Y3RZYau_LyQU6CzDK" -O $MODELS_DIR/epoch_20_headers_no_mask_head.pth && \
     wget --output-document $MODELS_DIR/ch_ppocr_mobile_v2.0_det_infer.tar https://paddleocr.bj.bcebos.com/dygraph_v2.0/ch/ch_ppocr_mobile_v2.0_det_infer.tar && \
     tar xf $MODELS_DIR/ch_ppocr_mobile_v2.0_det_infer.tar -C $MODELS_DIR && \
     rm -rf $MODELS_DIR/ch_ppocr_mobile_v2.0_det_infer.tar && \

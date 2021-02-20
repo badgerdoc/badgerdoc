@@ -60,7 +60,7 @@ def _raw_to_cell(raw_cell: Dict[str, Any]) -> Cell:
 
 
 def inference_result_to_boxes(inference_page_result: List[Dict[str, Any]]) \
-        -> Tuple[List[InferenceTable], List[BorderBox]]:
+        -> Tuple[List[InferenceTable], List[Cell], List[BorderBox]]:
     raw_tables = [tag for tag in inference_page_result if tag['label'] in TABLE_TAGS]
     raw_headers = [_raw_to_cell(tag) for tag in inference_page_result if tag['label'] == 'Header']
     inference_tables: List[InferenceTable] = \
@@ -70,11 +70,9 @@ def inference_result_to_boxes(inference_page_result: List[Dict[str, Any]]) \
 
     raw_cells = [_raw_to_cell(cell) for cell in inference_page_result if cell['label'] == CELL_TAG]
 
-    _ = match_headers_and_tables(raw_headers, filtered)
-
     not_matched = match_cells_and_tables(raw_cells, filtered)
 
-    return filtered, not_matched
+    return filtered, raw_headers, not_matched
 
 
 class CascadeRCNNInferenceService:
@@ -93,6 +91,6 @@ class CascadeRCNNInferenceService:
             image_path = img.parent.parent / "raw_model" / img.name
             image_path.parent.mkdir(parents=True, exist_ok=True)
             cv2.imwrite(str(image_path.absolute()), inference_image)
-        inf_tables, _ = inference_result_to_boxes(
+        inf_tables, headers, _ = inference_result_to_boxes(
             extract_boxes_from_result(result, CLASS_NAMES, score_thr=threshold))
-        return inf_tables
+        return inf_tables, headers

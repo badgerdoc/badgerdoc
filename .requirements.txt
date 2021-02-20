@@ -9,3 +9,5 @@ python-poppler==0.2.2
 tesserocr==2.5.1
 paddleocr==2.0.2
 paddlepaddle==2.0rc1 --index-url https://mirror.baidu.com/pypi/simple
+nltk==3.5
+openpyxl
