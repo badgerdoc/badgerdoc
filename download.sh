@@ -1,7 +1,8 @@
 export MODELS_DIR=models
 export IMG_DIR=images
 
-mkdir $IMG_DIR
+mkdir -p $MODELS_DIR
+mkdir -p $IMG_DIR
 
 python -m nltk.downloader stopwords
 python -m nltk.downloader words
