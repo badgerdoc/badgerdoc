@@ -17,7 +17,7 @@ LOGGER = logging.getLogger(__name__)
 LOGGING_FORMAT = "[%(asctime)s] - [%(name)s] - [%(levelname)s] - %(message)s"
 
 CASCADE_CONFIG_PATH = Path(os.environ.get("CASCADE_CONFIG_PATH")) if os.environ.get("CASCADE_CONFIG_PATH") \
-    else Path(__file__).parent.parent.joinpath("models/cascadetabnet_config_cut_no_mask.py")
+    else Path(__file__).parent.parent.joinpath("configs/cascadetabnet_config_cut_no_mask.py")
 CASCADE_MODEL_PATH = Path(os.environ.get("CASCADE_MODEL_PATH")) if os.environ.get("CASCADE_MODEL_PATH") \
     else Path(__file__).parent.parent.joinpath("models/epoch_20_headers_no_mask_head.pth")
 PADDLE_MODEL_DIR = Path(os.environ.get("PADDLE_MODEL_DIR")) if os.environ.get("PADDLE_MODEL_DIR") \

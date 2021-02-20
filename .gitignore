@@ -13,3 +13,4 @@ paddle_detector/inference/*
 *.log
 *.pid
 ./uploads
+cases75.txt
