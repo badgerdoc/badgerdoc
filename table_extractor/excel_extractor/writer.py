@@ -39,9 +39,11 @@ class ExcelWriter(BaseWriter):
 
     machine_learning_used = False
 
-    def write(self):
+    def write(self, data: dict = None):
+        if not data:
+            data = self.tables_with_headers.items()
 
-        for i, (sheet, tables) in enumerate(self.tables_with_headers.items()):
+        for i, (sheet, tables) in enumerate(data.items()):
             if not i:
                 ws = self.wb.active
             else:
@@ -49,16 +51,21 @@ class ExcelWriter(BaseWriter):
 
             for table in tables:
                 if not table['headers']:
-                    processed_table = get_headers_using_structured(table)
-                    for header_cells in processed_table.header:
-                        for cell in header_cells:
-                            added_cell = ws.cell(row=cell.row, column=cell.col, value=cell.text_boxes[0].text)
-                            added_cell.fill = HEADER_FILL
-                            added_cell.font = HEADER_FONT
+                    try:
+                        processed_table = get_headers_using_structured(table)
+                        for header_cells in processed_table.header:
+                            for cell in header_cells:
+                                added_cell = ws.cell(row=cell.row, column=cell.col, value=cell.text_boxes[0].text)
+                                added_cell.fill = HEADER_FILL
+                                added_cell.font = HEADER_FONT
 
-                    for cell in processed_table.cells:
-                        ws.cell(row=cell.row, column=cell.col, value=cell.text_boxes[0].text)
+                        for cell in processed_table.cells:
+                            ws.cell(row=cell.row, column=cell.col, value=cell.text_boxes[0].text)
+                    except Exception:
+                        # TODO: skip this step if json
+                        continue
                 else:
+                    # TODO: Merged cells
                     for _cell in table['headers']:
                         cell = _cell[-1]
                         added_cell = ws.cell(row=cell.row, column=cell.column, value=cell.value)
