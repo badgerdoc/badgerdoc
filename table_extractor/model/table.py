@@ -91,6 +91,8 @@ class Cell(BorderBox):
             text_boxes=text_boxes
         )
 
+    def is_empty(self):
+        return not any(text_field.text for text_field in self.text_boxes)
 
 @dataclass
 class GridCell(BorderBox):

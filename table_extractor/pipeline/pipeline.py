@@ -5,6 +5,7 @@ from typing import List, Tuple, Dict, Any, Union
 from pathlib import Path
 
 import cv2
+import numpy as np
 from tesserocr import PSM
 
 from table_extractor.bordered_service.bordered_tables_detection import detect_tables_on_page
@@ -244,6 +245,12 @@ def save_page(page_dict: Dict, path: Path):
         f.write(json.dumps(page_dict, indent=4))
 
 
+def softmax(array: Tuple[float]) -> List[float]:
+    x = np.array(array)
+    e_x = np.exp(x - np.max(x))
+    return (e_x / e_x.sum()).tolist()
+
+
 class PageProcessor:
     def __init__(self,
                  inference_service: CascadeRCNNInferenceService,
@@ -257,16 +264,34 @@ class PageProcessor:
         self.paddle_on = paddle_on
         self.header_checker = HeaderChecker()
 
-    def analyse(self, series: List[CellLinked]):
+    def cell_in_inf_header(self, cell: CellLinked, inf_headers: List[Cell]) -> float:
+        confidences = [0.]
+        for header in inf_headers:
+            if cell.box_is_inside_another(header):
+                confidences.append(header.confidence)
+        return max(confidences)
+
+    def analyse(self, series: List[CellLinked], inf_headers: List[Cell]):
         # Check if series is header
         headers = []
+        first_line = False
         for cell in series:
-            header_score, _ = self.header_checker.get_cell_score(cell)
-            if header_score > 0:
-                headers.append(cell)
-        return len(headers) > (len(series) / 5) if len(series) > 5 else len(headers) > (len(series) / 2)
+            inf_header_score = self.cell_in_inf_header(cell, inf_headers)
+            header_score, cell_score = softmax(self.header_checker.get_cell_score(cell))
+            header_score, cell_score = softmax((header_score + inf_header_score, cell_score))
 
-    def create_header(self, series: List[List[CellLinked]], header_limit: int):
+            if header_score > cell_score:
+                headers.append(cell)
+            if cell.col == 0 and cell.row == 0:
+                first_line = True
+
+        if first_line:
+            empty_cells_num = self._count_empty_cells(series)
+            return len(headers) > (len(series) - empty_cells_num) / 2
+        # return len(headers) > (len(series) / 5) if len(series) > thresh else len(headers) > (len(series) / 2)
+        return len(headers) > (len(series) / 2)
+
+    def create_header(self, series: List[List[CellLinked]], inf_headers: List[Cell], header_limit: int):
         """
         Search for headers based on cells contents
         @param series: cols or rows of the table
@@ -276,18 +301,27 @@ class PageProcessor:
         header_candidates = []
         last_header = None
         for idx, line in enumerate(series[:header_limit]):
-            if self.analyse(line):
+            if self.analyse(line, inf_headers):
                 header_candidates.append((idx, True, line))
                 last_header = idx
             else:
                 header_candidates.append((idx, False, line))
+
         if last_header is not None:
             header = [line for idx, is_header, line in header_candidates[:last_header + 1]]
         else:
             header = []
+
         if len(header) > 0.75 * len(series):
+            with open('cases75.txt', 'a') as f:
+                f.write(str(series) + '\n')
             header = []
+
         return header
+
+    @staticmethod
+    def _count_empty_cells(series: List[CellLinked]):
+        return len([True for cell in series if cell.is_empty()])
 
     def extract_table_from_inference(self,
                                      img,
@@ -371,7 +405,7 @@ class PageProcessor:
         )
         text_fields = self._scale_poppler_result(img, output_path, poppler_page, image_path)
 
-        inference_tables = self.inference_service.inference_image(image_path)
+        inference_tables, headers = self.inference_service.inference_image(image_path)
         if not inference_tables:
             return page_to_dict(page)
 
@@ -445,6 +479,7 @@ class PageProcessor:
         for table in page.tables:
             actualize_text(table, image_path)
 
+        # TODO: Headers should be created only once
         cell_header_scores = []
         for table in page.tables:
             cell_header_scores.extend(self.header_checker.get_cell_scores(table.cells))
@@ -455,9 +490,10 @@ class PageProcessor:
 
         tables_with_header = []
         for table in page.tables:
-            header_rows = self.create_header(table.rows, 6)
+            header_rows = self.create_header(table.rows, headers, 6)
             table_with_header = StructuredTableHeadered.from_structured_and_rows(table, header_rows)
-            header_cols = self.create_header(table.cols, 4)
+            header_cols = self.create_header(table.cols, headers, 5)
+            # TODO: Cells should be actualized only once
             table_with_header.actualize_header_with_cols(header_cols)
             tables_with_header.append(table_with_header)
         page.tables = tables_with_header

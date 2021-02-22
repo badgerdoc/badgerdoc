@@ -132,6 +132,7 @@ class InferenceTable:
     confidence: float = field(default=0.)
     label: str = field(default='')
     paddler: List[Cell] = field(default_factory=list)
+    header_boxes: List[Cell] = field(default_factory=list)
 
 
 def match_cells_and_tables(raw_cells: List[BorderBox], inference_tables: List[InferenceTable]) -> List[BorderBox]:
@@ -148,9 +149,6 @@ def match_cells_and_tables(raw_cells: List[BorderBox], inference_tables: List[In
         cell = cells_stack.pop()
         matched = False
         for table in inference_tables:
-            if table.bbox.width * 0.7 < cell.width:
-                not_matched_cells.append(cell)
-                break
             matched = matched or check_inside_and_put(table, cell)
             if matched:
                 break
@@ -180,55 +178,27 @@ def match_cells_and_tables(raw_cells: List[BorderBox], inference_tables: List[In
     return not_matched_cells
 
 
-def inference_result_to_boxes(inference_page_result: List[Dict[str, Any]]) \
-        -> Tuple[List[InferenceTable], List[BorderBox]]:
-    raw_tables = [tag for tag in inference_page_result if tag['label'] in TABLE_TAGS]
-    inference_tables: List[InferenceTable] = []
-    for raw_table in raw_tables:
-        if raw_table['score'] < 0.0:
-            continue
-        top_left_x, top_left_y, bottom_right_x, bottom_right_y = raw_table['bbox']
-        inference_tables.append(
-            InferenceTable(
-                bbox=BorderBox(
-                    top_left_y=top_left_y,
-                    top_left_x=top_left_x,
-                    bottom_right_y=bottom_right_y,
-                    bottom_right_x=bottom_right_x
-                ),
-                confidence=raw_table['score'],
-                label=raw_table['label']
-            )
-        )
+def match_headers_and_tables(headers: List[Cell], inference_tables: List[InferenceTable]) -> List[BorderBox]:
+    headers_stack = headers.copy()
 
-    filtered = []
-    stack = inference_tables.copy()
-    while len(stack) > 0:
-        table = stack.pop()
-        to_remove = []
-        candidates = [table]
-        for i in range(len(stack)):
-            other_table = stack[i]
-            if table.bbox.box_is_inside_another(other_table.bbox):
-                candidates.append(other_table)
-                to_remove.append(other_table)
-        filtered.append(
-            max(candidates, key=lambda c: c.confidence)
-        )
-        for i in to_remove:
-            stack.remove(i)
+    def check_inside_and_put(inf_table: InferenceTable, inf_header: BorderBox):
+        if inf_header.box_is_inside_another(inf_table.bbox):
+            inf_table.header_boxes.append(inf_header)
+            return True
+        return False
 
-    raw_cells = [Cell(
-        top_left_x=tag['bbox'][0],
-        top_left_y=tag['bbox'][1],
-        bottom_right_x=tag['bbox'][2],
-        bottom_right_y=tag['bbox'][3],
-        confidence=tag['score'],
-    ) for tag in inference_page_result if tag['label'] in CELL_TAG]
+    not_matched_cells: List[BorderBox] = []
+    while len(headers_stack) > 0:
+        cell = headers_stack.pop()
+        matched = False
+        for table in inference_tables:
+            matched = matched or check_inside_and_put(table, cell)
+            if matched:
+                break
+        if not matched:
+            not_matched_cells.append(cell)
 
-    not_matched = match_cells_and_tables(raw_cells, filtered)
-
-    return filtered, not_matched
+    return not_matched_cells
 
 
 @dataclass

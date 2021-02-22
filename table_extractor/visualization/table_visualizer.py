@@ -46,7 +46,7 @@ def draw_text_boxes(img: numpy.ndarray, text_fields: List[TextField]):
 def draw_cell_scores(img: numpy.ndarray, cells_scores: List[Tuple[CellLinked, float, float]]):
     text_box_thickness = 3
     for cell, header_score, non_header_score in cells_scores:
-        if header_score > 0:
+        if header_score > non_header_score:
             _draw_rectangle(HEADER_CELL_COLOR, text_box_thickness, img, cell)
         else:
             _draw_rectangle(CELL_WITH_TEXT_COLOR, 1, img, cell)
@@ -64,6 +64,8 @@ def draw_inference(img: numpy.ndarray, inference_result: List[InferenceTable]):
                     TEXT_THICKNESS)
         for box in inference_table.tags:
             _draw_rectangle(INFERENCE_COLOR, INFERENCE_THICKNESS, img, box)
+        for header in inference_table.header_boxes:
+            _draw_rectangle(HEADER_CELL_COLOR, INFERENCE_THICKNESS, img, header)
 
 
 def draw_table(img: numpy.ndarray, tables: List[Table]):

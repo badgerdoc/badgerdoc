@@ -5,7 +5,10 @@ IMG_EXTENSIONS = ('png', 'jpg', 'jpeg', 'bmp')
 
 
 def extract_boxes_from_result(result, class_names, score_thr=0.3):
-    bboxes_res, segm_result = result
+    if len(result) == 2:
+        bboxes_res, segm_result = result
+    else:
+        bboxes_res = result
     bboxes = np.vstack(bboxes_res)
     labels = [
         np.full(bbox.shape[0], i, dtype=np.int32)
