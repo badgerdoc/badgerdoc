@@ -10,7 +10,7 @@ from typing import Tuple, List
 import concurrent.futures
 import itertools
 from pprint import pprint
-dir_path = '/Users/svyatoslav_kosovskik/Downloads/annotated_dataset/'
+dir_path = '/home/ilia/gp_set/'
 
 
 async def get_path(url):
@@ -28,11 +28,11 @@ async def get_text_from_one_cell(test, ann):
 
 
 async def make_annotations(ann, test):
-    if ann['category_id'] == 15:
+    if ann['category_id'] == 4:
         header = Cell(ann['bbox'][0], ann['bbox'][1], ann['bbox'][0] +
                       ann['bbox'][2], ann['bbox'][1] + ann['bbox'][3])
         return header, 0
-    elif ann['category_id'] == 10:
+    elif ann['category_id'] == 2:
         text = await get_text_from_one_cell(test, ann)
         if text[0]:
             text = text[0].replace('\n', ' ')
@@ -50,8 +50,9 @@ async def collect_annotations(annotations, test):
 
 
 async def get_cells_from_image(url, data) -> Tuple[List[Cell], List[Cell]]:
-    image_id = [image for image in data['images'] if await get_path(image['path']) in url]
-
+    print(url)
+    image_id = [image for image in data['images'] if image['file_name'] in url]
+    print(image_id)
     if image_id:
         test = TextExtractor(url)
         header_cells = []
@@ -59,6 +60,7 @@ async def get_cells_from_image(url, data) -> Tuple[List[Cell], List[Cell]]:
         annotations = [ann for ann in data['annotations'] if ann['image_id'] == image_id[0]['id']]
 
         annotations_agg = await collect_annotations(annotations, test)
+        print(annotations_agg)
 
         headers = [i[0] for i in annotations_agg if i[1] == 0]
         cells = [i[0] for i in annotations_agg if i[1] == 1]
@@ -117,6 +119,7 @@ async def files_collector(dir_name):
 
 
 async def start():
+
     dirs = [join(dir_path, f) for f in listdir(dir_path) if isdir(join(dir_path, f))]
 
     result = await asyncio.gather(*[files_collector(dirr) for dirr in dirs])

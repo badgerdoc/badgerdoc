@@ -88,7 +88,7 @@ def run_lemmatizer(name):
     @param name: name of the cell type
     """
 
-    sequence = read_from_file(f'{name}.txt')
+    sequence = read_from_file(f'/home/ilia/Documents/IdeaProjects/badgerdoc/{name}.txt')
     df = pd.DataFrame(sequence, columns=['words'])
     df = count_probability(df)
     number_probability = count_number_probability(df)

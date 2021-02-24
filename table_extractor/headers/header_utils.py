@@ -8,7 +8,6 @@ from nltk.corpus import words, stopwords
 from table_extractor.model.table import CellLinked
 import regex
 import numpy as np
-from functools import reduce
 
 stemmer = WordNetLemmatizer()
 stop_list = set(stopwords.words('english'))
@@ -24,8 +23,8 @@ def softmax(array: Tuple[float]) -> List[float]:
 
 
 class HeaderChecker:
-    def __init__(self, cell_dictionary_path: Path = Path(__file__).parent.parent.parent.joinpath("language/cells.json"),
-                 header_dictionary_path: Path = Path(__file__).parent.parent.parent.joinpath("language/headers.json")):
+    def __init__(self, cell_dictionary_path: Path = Path(__file__).parent.parent.parent.joinpath("language/cells_gp.json"),
+                 header_dictionary_path: Path = Path(__file__).parent.parent.parent.joinpath("language/headers_gp.json")):
         self.cell_path = cell_dictionary_path
         self.header_path = header_dictionary_path
 

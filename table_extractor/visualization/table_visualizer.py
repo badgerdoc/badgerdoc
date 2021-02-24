@@ -52,7 +52,9 @@ def draw_cell_scores(img: numpy.ndarray, cells_scores: List[Tuple[CellLinked, fl
             _draw_rectangle(CELL_WITH_TEXT_COLOR, 1, img, cell)
 
 
-def draw_inference(img: numpy.ndarray, inference_result: List[InferenceTable]):
+def draw_inference(img: numpy.ndarray, inference_result: List[InferenceTable], header=None):
+    if header is None:
+        header = []
     for inference_table in inference_result:
         _draw_rectangle(INFERENCE_COLOR, INFERENCE_THICKNESS, img, inference_table.bbox)
         cv2.putText(img,
@@ -64,8 +66,10 @@ def draw_inference(img: numpy.ndarray, inference_result: List[InferenceTable]):
                     TEXT_THICKNESS)
         for box in inference_table.tags:
             _draw_rectangle(INFERENCE_COLOR, INFERENCE_THICKNESS, img, box)
-        for header in inference_table.header_boxes:
-            _draw_rectangle(HEADER_CELL_COLOR, INFERENCE_THICKNESS, img, header)
+        for head in inference_table.header_boxes:
+            _draw_rectangle(HEADER_CELL_COLOR, INFERENCE_THICKNESS, img, head)
+    for head in header:
+        _draw_rectangle(HEADER_CELL_COLOR, INFERENCE_THICKNESS, img, head)
 
 
 def draw_table(img: numpy.ndarray, tables: List[Table]):
@@ -105,14 +109,16 @@ def _check_and_create_path(output_path: Path):
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
 
-def draw_object(img, obj: Union[List[Table], List[InferenceTable], List[TextField], List[StructuredTable]]):
+def draw_object(img, obj: Union[List[Table], List[InferenceTable], List[TextField], List[StructuredTable]], header=None):
+    if header is None:
+        header = []
     if not obj or not isinstance(obj, List) or img is None:
         return img
     img = img.copy()
     if isinstance(obj[0], Table):
         draw_table(img, obj)
     elif isinstance(obj[0], InferenceTable):
-        draw_inference(img, obj)
+        draw_inference(img, obj, header)
     elif isinstance(obj[0], StructuredTableHeadered):
         draw_structured_table_headered(img, obj)
     elif isinstance(obj[0], StructuredTable):
@@ -134,7 +140,10 @@ class TableVisualizer:
                              img: numpy.ndarray,
                              obj: Union[List[Table], List[InferenceTable], List[TextField],
                                         List[StructuredTable], List[StructuredTableHeadered]],
-                             output_path: Path):
+                             output_path: Path,
+                             headers=None):
+        if headers is None:
+            headers = []
         if not self.should_visualize:
             return
         if img is None:
@@ -143,5 +152,5 @@ class TableVisualizer:
             LOGGER.warning("Object to draw wasn't provided")
             return
         _check_and_create_path(output_path)
-        img = draw_object(img, obj)
+        img = draw_object(img, obj, header=headers)
         cv2.imwrite(str(output_path.absolute()), img)

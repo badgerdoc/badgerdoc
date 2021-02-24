@@ -16,7 +16,7 @@ def match_table_text(table: Table, text_boxes: List[TextField]):
 
 def match_cells_text(cells: List[Cell], text_box: TextField):
     for cell in cells:
-        if text_box.bbox.box_is_inside_another(cell, threshold=0.6):
+        if text_box.bbox.box_is_inside_another(cell, threshold=0.4):
             cell.text_boxes.append(text_box)
             return True
     return False

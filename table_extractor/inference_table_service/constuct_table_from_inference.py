@@ -166,7 +166,7 @@ def _actualize_line_separators(table: GridTable, image_shape: Tuple[int, int]) -
         g_cell_v_line = list(zip(cand_col.g_cells, v_lines))
         cand_v_sort = list(filter(lambda x: x[3], sorted([(idx, len(v_cell_lines), g_cell, v_cell_lines)
                                                          for idx, (g_cell, v_cell_lines) in enumerate(g_cell_v_line)],
-                                                         key=lambda x: x[2].top_left_y)))
+                                                         key=lambda x: (x[1], x[2].top_left_y))))
 
         i = 0
         while i < len(cand_v_sort):

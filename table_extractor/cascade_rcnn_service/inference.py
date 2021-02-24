@@ -72,6 +72,31 @@ def inference_result_to_boxes(inference_page_result: List[Dict[str, Any]]) \
 
     not_matched = match_cells_and_tables(raw_cells, filtered)
 
+    if len(raw_cells) > 20 and not inference_tables:
+        filtered.append(InferenceTable(
+            bbox=BorderBox(
+                top_left_y=min([cell.top_left_y for cell in raw_cells]) - 50,
+                top_left_x=min([cell.top_left_x for cell in raw_cells]) - 50,
+                bottom_right_y=max([cell.bottom_right_y for cell in raw_cells]) + 50,
+                bottom_right_x=max([cell.bottom_right_x for cell in raw_cells]) + 50
+            ),
+            confidence=0.5,
+            label='Borderless',
+            tags=raw_cells
+        ))
+    if len(not_matched) > 20:
+        filtered.append(InferenceTable(
+            bbox=BorderBox(
+                top_left_y=min([cell.top_left_y for cell in not_matched]) - 50,
+                top_left_x=min([cell.top_left_x for cell in not_matched]) - 50,
+                bottom_right_y=max([cell.bottom_right_y for cell in not_matched]) + 50,
+                bottom_right_x=max([cell.bottom_right_x for cell in not_matched]) + 50
+            ),
+            confidence=0.5,
+            label='Borderless',
+            tags=not_matched
+        ))
+
     return filtered, raw_headers, not_matched
 
 
@@ -87,7 +112,7 @@ class CascadeRCNNInferenceService:
         logger.info(f'Cascade inference image {img}')
         result = inference_detector(self.model, img)
         if self.should_visualize:
-            inference_image = self.model.show_result(img, result)
+            inference_image = self.model.show_result(img, result, thickness=2)
             image_path = img.parent.parent / "raw_model" / img.name
             image_path.parent.mkdir(parents=True, exist_ok=True)
             cv2.imwrite(str(image_path.absolute()), inference_image)
