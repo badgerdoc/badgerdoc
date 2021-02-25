@@ -1,4 +1,9 @@
-from typing import List, Dict
+import json
+
+from typing import List, Dict, Union
+from pathlib import Path
+from dataclasses import dataclass
+
 from table_extractor.model.table import (
     StructuredTable,
     StructuredTableHeadered,
@@ -123,12 +128,9 @@ def get_header_using_styles(tables: dict, styles_to_check: List = None, matched_
     for sheet, sheet_tables in tables.items():
         tables_with_header.setdefault(sheet, [])
         for table in sheet_tables:
-            groups = ([], [], [])
+            groups = ([], [])
             for dims, colspan, rowspan, text, cell in table['cells'].values():
 
-                if not cell.has_style:
-                    groups[2].append((dims, colspan, rowspan, text, cell))
-                    continue
                 if not groups[0]:
                     groups[0].append((dims, colspan, rowspan, text, cell))
                     continue
@@ -146,7 +148,6 @@ def get_header_using_styles(tables: dict, styles_to_check: List = None, matched_
                     groups[0].append((dims, colspan, rowspan, text, cell))
                 else:
                     groups[1].append((dims, colspan, rowspan, text, cell))
-
             table['headers'] = None
             if len([group for group in groups if group]) == 1:
                 tables_with_header[sheet].append(table)
@@ -164,3 +165,37 @@ def get_header_using_styles(tables: dict, styles_to_check: List = None, matched_
                             table['cells'].update({(cell[-1].column, cell[-1].row): cell})
 
     return tables_with_header
+
+
+@dataclass
+class ConvertedCell:
+    row: int
+    column: int
+    value: str
+
+
+def json_to_data(path: Union[str, Path]) -> dict:
+    result = {}
+    with open(path) as file:
+        data = json.load(file)
+
+    for page in data['pages']:
+        page_name = f"Page {page['page_num']}"
+        result[page_name] = []
+        for block in page['blocks']:
+            table = {}
+            if 'header' in block.keys():
+                table['headers'] = []
+                for header_cell in block['header']:
+                    table['headers'].append(
+                        (ConvertedCell(row=header_cell['row']+1, column=header_cell['column']+1, value=header_cell['text']),)
+                    )
+            if 'cells' in block.keys():
+                table['cells'] = {}
+                for cell in block['cells']:
+                    table['cells'][(cell['column'], cell['row'])] = (
+                        (ConvertedCell(row=cell['row']+1, column=cell['column']+1, value=cell['text']),)
+                    )
+            if table:
+                result[page_name].append(table)
+    return result
