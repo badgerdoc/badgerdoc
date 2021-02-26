@@ -421,8 +421,8 @@ class PageProcessor:
                 if image.tables:
                     for bordered_table in bordered_tables:
                         if inf_table.bbox.box_is_inside_another(bordered_table.bbox, 0.8)\
-                                and (inf_table.label == 'Bordered'
-                                     or len(inf_table.tags) < len(bordered_table.cells)):
+                                and inf_table.label == 'Bordered'\
+                                and len(bordered_table.cells) > len(inf_table.tags) * 0.5:
                             matched = True
                             page.tables.append(bordered_table)
                 if not matched:
