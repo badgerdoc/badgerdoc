@@ -182,16 +182,16 @@ train_cfg = dict(
     stage_loss_weights=[1, 0.5, 0.25])
 test_cfg = dict(
     rpn=dict(
-        nms_across_levels=False,
+        nms_across_levels=True,
         nms_pre=2000,
-        nms_post=2000,
+        nms_post=5000,
         max_num=2000,
         nms_thr=0.7,
         min_bbox_size=0),
     rcnn=dict(
         score_thr=0.05,
-        nms=dict(type='nms', iou_thr=0.5),
-        max_per_img=100,
+        nms=dict(type='nms', iou_thr=0.1),
+        max_per_img=1000,
         mask_thr_binary=0.5)
 )
 dataset_type = 'CocoDataset'

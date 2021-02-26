@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import List, Dict, Tuple
 from table_extractor.model.table import (
     StructuredTable,
     StructuredTableHeadered,
@@ -8,6 +8,7 @@ from table_extractor.model.table import (
 )
 from table_extractor.headers.header_utils import HeaderChecker
 from openpyxl.cell.cell import Cell
+import numpy as np
 
 header_checker = HeaderChecker()
 
@@ -71,6 +72,33 @@ def excel_to_structured(excel_table: dict) -> StructuredTable:
     return table
 
 
+def softmax(array: Tuple[float]) -> List[float]:
+    x = np.array(array)
+    e_x = np.exp(x - np.max(x))
+    return (e_x / e_x.sum()).tolist()
+
+
+def _count_empty_cells(series: List[CellLinked]):
+    return len([True for cell in series if cell.is_empty()])
+
+
+def analyse(series: List[CellLinked]):
+    # Check if series is header
+    headers = []
+    first_line = False
+    for cell in series:
+        header_score, cell_score = softmax(header_checker.get_cell_score(cell))
+        if header_score > cell_score:
+            headers.append(cell)
+        if cell.col == 0 and cell.row == 0:
+            first_line = True
+    if first_line:
+        empty_cells_num = _count_empty_cells(series)
+        return len(headers) > (len(series) - empty_cells_num) / 2
+    # return len(headers) > (len(series) / 5) if len(series) > thresh else len(headers) > (len(series) / 2)
+    return len(headers) > (len(series) / 2)
+
+
 def create_header(series: List[List[CellLinked]], header_limit: int):
     """
     Search for headers based on cells contents
@@ -86,30 +114,23 @@ def create_header(series: List[List[CellLinked]], header_limit: int):
             last_header = idx
         else:
             header_candidates.append((idx, False, line))
+
     if last_header is not None:
         header = [line for idx, is_header, line in header_candidates[:last_header + 1]]
     else:
         header = []
+
     if len(header) > 0.75 * len(series):
         header = []
+
     return header
-
-
-def analyse(series: List[CellLinked]):
-    # Check if series is header
-    headers = []
-    for cell in series:
-        header_score, _ = header_checker.get_cell_score(cell)
-        if header_score > 0:
-            headers.append(cell)
-    return len(headers) > (len(series) / 5) if len(series) > 5 else len(headers) > (len(series) / 2)
 
 
 def get_headers_using_structured(table: dict) -> StructuredTableHeadered:
     table = excel_to_structured(table)
-    header_rows = create_header(table.rows, 6)
+    header_rows = create_header(table.rows, 4)
     table_with_header = StructuredTableHeadered.from_structured_and_rows(table, header_rows)
-    header_cols = create_header(table.cols, 4)
+    header_cols = create_header(table.cols, 1)
     table_with_header.actualize_header_with_cols(header_cols)
 
     return table_with_header

@@ -28,6 +28,8 @@ def detect_bordered_tables_on_image(image: Image, draw=True, mask: numpy.ndarray
         mask = cv2.imread(str(image.path.absolute()))
     image.shape = mask.shape[:2]
     img_gray = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
+    img_gray = cv2.adaptiveThreshold(
+        img_gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
     (thresh, img_bin) = cv2.threshold(
         img_gray, 128, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU
     )

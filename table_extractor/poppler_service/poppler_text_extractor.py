@@ -58,15 +58,16 @@ def extract_text(pdf_file: Path) -> Dict[str, PopplerPage]:
         page_rect = page.page_rect()
         text_fields: List[PopplerTextField] = []
         for text_field in page.text_list():
-            text_fields.append(
-                PopplerTextField(
-                    bbox=PopplerBoundingBox(
-                        x=text_field.bbox.x,
-                        y=text_field.bbox.y,
-                        height=text_field.bbox.height,
-                        width=text_field.bbox.width
-                    ),
-                    text=text_field.text))
+            if text_field.text.strip():
+                text_fields.append(
+                    PopplerTextField(
+                        bbox=PopplerBoundingBox(
+                            x=text_field.bbox.x,
+                            y=text_field.bbox.y,
+                            height=text_field.bbox.height,
+                            width=text_field.bbox.width
+                        ),
+                        text=text_field.text))
         pages[str(page_num)] = PopplerPage(
             bbox=PopplerBoundingBox(
                 x=page_rect.x,

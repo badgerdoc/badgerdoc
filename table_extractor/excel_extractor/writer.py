@@ -1,6 +1,9 @@
+import json
+from pathlib import Path
 from typing import Dict
 from copy import copy
 
+from table_extractor.bordered_service.models import Page
 from table_extractor.excel_extractor.constants import (
     HEADER_FONT,
     HEADER_BORDER,
@@ -11,6 +14,9 @@ from table_extractor.excel_extractor.converter import (
     get_header_using_styles,
 )
 from openpyxl import Workbook
+
+from table_extractor.model.table import BorderBox
+from table_extractor.pipeline.pipeline import page_to_dict
 
 
 class BaseWriter:
@@ -40,7 +46,7 @@ class ExcelWriter(BaseWriter):
     machine_learning_used = False
 
     def write(self):
-
+        pages = []
         for i, (sheet, tables) in enumerate(self.tables_with_headers.items()):
             if not i:
                 ws = self.wb.active
@@ -48,31 +54,33 @@ class ExcelWriter(BaseWriter):
                 ws = self.wb.create_sheet(sheet)
 
             for table in tables:
-                if not table['headers']:
-                    processed_table = get_headers_using_structured(table)
-                    for header_cells in processed_table.header:
-                        for cell in header_cells:
-                            added_cell = ws.cell(row=cell.row, column=cell.col, value=cell.text_boxes[0].text)
-                            added_cell.fill = HEADER_FILL
-                            added_cell.font = HEADER_FONT
-
-                    for cell in processed_table.cells:
-                        ws.cell(row=cell.row, column=cell.col, value=cell.text_boxes[0].text)
-                else:
-                    for _cell in table['headers']:
-                        cell = _cell[-1]
-                        added_cell = ws.cell(row=cell.row, column=cell.column, value=cell.value)
+                for header_cells in table.header:
+                    for cell in header_cells:
+                        added_cell = ws.cell(row=cell.row, column=cell.col, value=cell.text_boxes[0].text)
                         added_cell.fill = HEADER_FILL
                         added_cell.font = HEADER_FONT
 
-                    for _cell in table['cells'].values():
-                        cell = _cell[-1]
-                        ws.cell(row=cell.row, column=cell.column, value=cell.value)
+                for cell in table.cells:
+                    ws.cell(row=cell.row, column=cell.col, value=cell.text_boxes[0].text)
+
+            pages.append(page_to_dict(Page(
+                page_num=i,
+                bbox=BorderBox(
+                    top_left_x=0,
+                    top_left_y=0,
+                    bottom_right_x=max([table.bbox.bottom_right_x for table in tables]),
+                    bottom_right_y=max([table.bbox.bottom_right_y for table in tables])
+                ),
+                tables=tables
+            )))
 
         self.wb.save(self.outpath)
+        return pages
 
     @property
     def tables_with_headers(self) -> dict:
         if not self._tables_with_headers:
-            self._tables_with_headers = get_header_using_styles(self.data)
+            self._tables_with_headers = {}
+            for sheet, tables in self.data.items():
+                self._tables_with_headers[sheet] = [get_headers_using_structured(table) for table in tables]
         return self._tables_with_headers

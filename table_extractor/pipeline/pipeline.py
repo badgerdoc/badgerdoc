@@ -397,34 +397,43 @@ class PageProcessor:
         )
         text_fields = self._scale_poppler_result(img, output_path, poppler_page, image_path)
 
+        logger.info("Start inference")
         inference_tables, headers = self.inference_service.inference_image(image_path)
+        logger.info("End inference")
         self.visualizer.draw_object_and_save(
             img, inference_tables, Path(f"{output_path}/inference_result/{image_path.name}"), headers=headers)
 
         if inference_tables:
+            logger.info("Start bordered")
             image = detect_tables_on_page(image_path, draw=self.visualizer.should_visualize)
+            logger.info("End bordered")
             text_fields_to_match = text_fields
+            bordered_tables = []
             if image.tables:
                 for bordered_table in image.tables:
-                    if bordered_table.count_cells() > 20:
                         in_table, text_fields_to_match = match_table_text(bordered_table, text_fields_to_match)
                         _ = match_cells_table(in_table, bordered_table)
-                        page.tables.append(semi_border_to_struct(bordered_table, img.shape))
+                        bordered_tables.append(semi_border_to_struct(bordered_table, img.shape))
 
             inf_tables_to_detect = []
             for inf_table in inference_tables:
                 matched = False
                 if image.tables:
-                    for bordered_table in image.tables:
-                        if bordered_table.count_cells() > 20 and inf_table.bbox.box_is_inside_another(bordered_table.bbox):
+                    for bordered_table in bordered_tables:
+                        if inf_table.bbox.box_is_inside_another(bordered_table.bbox, 0.8)\
+                                and (inf_table.label == 'Bordered'
+                                     or len(inf_table.tags) < len(bordered_table.cells)):
                             matched = True
+                            page.tables.append(bordered_table)
                 if not matched:
                     inf_tables_to_detect.append(inf_table)
 
             semi_bordered_tables = []
             for inf_table in inf_tables_to_detect:
                 in_inf_table, text_fields_to_match = match_table_text(inf_table, text_fields_to_match)
+                logger.info("Start paddle")
                 paddle_fields = self.text_detector.extract_table_text(img, inf_table.bbox)
+                logger.info("End paddle")
                 if paddle_fields:
                     in_inf_table = merge_text_fields(paddle_fields, in_inf_table)
 
@@ -472,7 +481,7 @@ class PageProcessor:
             self.visualizer.draw_object_and_save(img,
                                                  page.tables,
                                                  output_path.joinpath('tables').joinpath(image_path.name))
-
+        logger.info("Start text extraction")
         with TextExtractor(str(image_path.absolute()), seg_mode=PSM.SPARSE_TEXT) as extractor:
             text_borders = [1]
             for table in page.tables:
@@ -497,7 +506,7 @@ class PageProcessor:
                 )
                 if text:
                     page.text.append(TextField(box, text))
-
+        logger.info("End text extraction")
         page_dict = page_to_dict(page)
         if self.visualizer.should_visualize:
             save_page(page_dict, output_path / 'pages' / f"{page.page_num}.json")
