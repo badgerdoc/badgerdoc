@@ -14,3 +14,4 @@ Results folder will have next structure:
 
 # Run excel extractor
 `python -m table_extractor.excel_run  <path-to-excel> <output-path>`
+Note! To run excel extraction correctly, please set File -> Export as PDF -> Structure -> Whole Sheet Export

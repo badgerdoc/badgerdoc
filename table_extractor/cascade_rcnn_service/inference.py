@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Dict, List, Any, Tuple
 
 import cv2
-
+import numpy as np
 from table_extractor.bordered_service.models import InferenceTable, match_cells_and_tables, match_headers_and_tables
 from table_extractor.model.table import BorderBox, Cell
 from table_extractor.cascade_rcnn_service.utils import extract_boxes_from_result, has_image_extension
@@ -100,22 +100,88 @@ def inference_result_to_boxes(inference_page_result: List[Dict[str, Any]]) \
     return filtered, raw_headers, not_matched
 
 
+def add_padding(img: Path, padding: int):
+    img_arr = cv2.imread(str(img.absolute()))
+    new_shape = img_arr.shape[0] + 2 * padding, img_arr.shape[1] + 2 * padding, img_arr.shape[2]
+    new_img = np.ones(shape=new_shape) * 255
+    new_img[padding:img_arr.shape[0] + padding, padding:img_arr.shape[1] + padding, :] = img_arr
+    return new_img
+
+
+def shift(inf_tables: List[InferenceTable], headers: List[Cell], pic_shift: int, padding: int):
+    for table in inf_tables:
+        table.bbox.top_left_y = table.bbox.top_left_y + pic_shift
+        table.bbox.top_left_x = table.bbox.top_left_x + padding
+        table.bbox.bottom_right_y = table.bbox.bottom_right_y + pic_shift
+        table.bbox.bottom_right_x = table.bbox.bottom_right_x + padding
+        for cell in table.tags:
+            cell.top_left_y = cell.top_left_y + pic_shift
+            cell.top_left_x = cell.top_left_x + padding
+            cell.bottom_right_y = cell.bottom_right_y + pic_shift
+            cell.bottom_right_x = cell.bottom_right_x + padding
+    for header in headers:
+        header.top_left_y = header.top_left_y + pic_shift
+        header.top_left_x = header.top_left_x + padding
+        header.bottom_right_y = header.bottom_right_y + pic_shift
+        header.bottom_right_x = header.bottom_right_x + padding
+
+
 class CascadeRCNNInferenceService:
     def __init__(self, config: Path, model: Path, should_visualize: bool = False):
         self.model = init_detector(str(config.absolute()), str(model.absolute()), device='cpu')
         self.should_visualize = should_visualize
 
-    def inference_image(self, img: Path, threshold: float = DEFAULT_THRESHOLD):
+    def inference_split(self, img: Path, threshold: float = DEFAULT_THRESHOLD, padding: int = 0):
+        image = cv2.imread(str(img.absolute()))
+        split_weight = [0.2, 0.43, 0.65, 0.84, 1]
+        splits = []
+        prev = 0
+        for split_w in split_weight:
+            border = int(split_w * image.shape[0])
+            splits.append(image[prev:border])
+            prev = border
+
+        tables = []
+        headers = []
+
+        prev_shape = padding
+        for num, split in enumerate(splits):
+            result = inference_detector(self.model, split)
+            if self.should_visualize:
+                inference_image = self.model.show_result(split, result, thickness=2)
+                image_path = img.parent.parent / "raw_model" / img.name / f"{num}.png"
+                image_path.parent.mkdir(parents=True, exist_ok=True)
+                cv2.imwrite(str(image_path.absolute()), inference_image)
+            inf_tables, header, _ = inference_result_to_boxes(
+                extract_boxes_from_result(result, CLASS_NAMES, score_thr=threshold))
+            shift(inf_tables, headers, prev_shape, padding)
+            tables.extend(inf_tables)
+            headers.extend(header)
+            prev_shape += split.shape[0]
+        return tables, headers
+
+    def inference_image(self, img: Path, threshold: float = DEFAULT_THRESHOLD, padding: int = 0):
         if not has_image_extension(img):
             logger.warning(f'Not image {img}')
             return
         logger.info(f'Cascade inference image {img}')
-        result = inference_detector(self.model, img)
-        if self.should_visualize:
-            inference_image = self.model.show_result(img, result, thickness=2)
-            image_path = img.parent.parent / "raw_model" / img.name
-            image_path.parent.mkdir(parents=True, exist_ok=True)
-            cv2.imwrite(str(image_path.absolute()), inference_image)
+        if padding:
+            img_arr = add_padding(img, padding)
+            if img_arr.shape[0] > 12000:
+                return self.inference_split(img, threshold, padding)
+            result = inference_detector(self.model, img_arr)
+            if self.should_visualize:
+                inference_image = self.model.show_result(img_arr, result, thickness=2)
+                image_path = img.parent.parent / "raw_model" / img.name
+                image_path.parent.mkdir(parents=True, exist_ok=True)
+                cv2.imwrite(str(image_path.absolute()), inference_image)
+        else:
+            result = inference_detector(self.model, img)
+            if self.should_visualize:
+                inference_image = self.model.show_result(img, result, thickness=2)
+                image_path = img.parent.parent / "raw_model" / img.name
+                image_path.parent.mkdir(parents=True, exist_ok=True)
+                cv2.imwrite(str(image_path.absolute()), inference_image)
         inf_tables, headers, _ = inference_result_to_boxes(
             extract_boxes_from_result(result, CLASS_NAMES, score_thr=threshold))
         return inf_tables, headers

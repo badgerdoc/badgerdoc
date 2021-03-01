@@ -1,6 +1,6 @@
 import sys
 
-from typing import Union, Generator, List
+from typing import Union, Generator, List, Tuple
 from enum import Enum
 from pathlib import Path
 from dataclasses import dataclass
@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from openpyxl import load_workbook
 from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.cell.cell import Cell, MergedCell
+
+from table_extractor.bordered_service.models import InferenceTable
 
 
 class Output(Enum):
@@ -17,6 +19,13 @@ class Output(Enum):
     JSON = 'json'
     PNG = 'png'
 
+
+def clean_xlsx_images(xlsx_path: Path):
+    workbook = load_workbook(str(xlsx_path.absolute()))
+    for worksheet in workbook.worksheets:
+        worksheet._images = []
+    workbook.save(str(xlsx_path.absolute()))
+    workbook.close()
 
 @dataclass
 class ExcelExtractor:

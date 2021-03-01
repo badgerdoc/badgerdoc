@@ -8,9 +8,9 @@ DPI = 400
 
 
 # ToDo: Implement also with pagination
-def convert_pdf_to_images(pdf_file: Path, out_dir: Path) -> Path:
+def convert_pdf_to_images(pdf_file: Path, out_dir: Path, already_incl: bool = False) -> Path:
     logger.info("Start pdf to png conversion for %s", str(pdf_file.name))
-    out_dir = out_dir.joinpath(Path(f"{pdf_file.name}/images/"))
+    out_dir = out_dir.joinpath(Path(f"{pdf_file.name}/images/")) if not already_incl else out_dir / 'images'
     out_dir.mkdir(parents=True, exist_ok=True)
     pages = convert_from_path(
         pdf_file,

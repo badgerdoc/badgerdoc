@@ -24,7 +24,6 @@ class TextExtractor:
         self.api.SetRectangle(x, y, w, h)
         return self._extract()
 
-    #TODO: Add support of zero values
     def extract(self, x=None, y=None, w=None, h=None) -> Tuple:
         if all([e is not None for e in [x, y, w, h]]):
             return self._extract_from_rect(x, y, w, h)

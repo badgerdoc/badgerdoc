@@ -128,10 +128,14 @@ def pdf_preprocess(pdf_path: Path, output_path: Path) -> Tuple[Path, Dict[str, P
     return images_path, poppler_pages
 
 
-def actualize_text(table: StructuredTable, image_path: Path):
+def actualize_text(table: StructuredTable, image_path: Path, img_shape):
     with TextExtractor(str(image_path.absolute())) as te:
         for cell in table.cells:
             if not cell.text_boxes or any([not text_box.text for text_box in cell.text_boxes]):
+                cell.top_left_x = max(0, cell.top_left_x)
+                cell.top_left_y = max(0, cell.top_left_y)
+                cell.bottom_right_x = min(img_shape[1], cell.bottom_right_x)
+                cell.bottom_right_y = min(img_shape[0], cell.bottom_right_y)
                 text, _ = te.extract(
                     cell.top_left_x, cell.top_left_y,
                     cell.width, cell.height
@@ -454,7 +458,7 @@ class PageProcessor:
                     page.tables.append(struct)
 
             for table in page.tables:
-                actualize_text(table, image_path)
+                actualize_text(table, image_path, img.shape[:2])
 
             # TODO: Headers should be created only once
             cell_header_scores = []
