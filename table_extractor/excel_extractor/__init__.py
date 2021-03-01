@@ -58,7 +58,8 @@ def create_copy_xlsx(orig_path: Path, out_path: Path, copy_name: str):
 def create_pdf(xlsx_path: Path, out_path: Path):
     out_path.mkdir(exist_ok=True, parents=True)
     exit_code = os.system(f"libreoffice --headless --convert-to pdf "
-                          f"--outdir '{str(out_path.absolute())}' '{str(xlsx_path.absolute())}'")
+                          f"--outdir '{str(out_path.absolute())}' '{str(xlsx_path.absolute())}'"
+                          f" -env:UserInstallation=file://{str(Path(__file__).parent.parent.parent.joinpath('configs/').absolute())}")
     if exit_code != 0:
         raise ValueError("Can not create PDF!")
 
