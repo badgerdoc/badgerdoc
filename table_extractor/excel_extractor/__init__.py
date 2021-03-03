@@ -162,6 +162,8 @@ def match_inf_res(xlsx_path: Path,
         last_row = worksheet.max_row
         for row_id, not_empty in sorted([(row_id, not_empty) for row_id, not_empty in row_fill.items()], reverse=True, key=lambda x: x[0]):
             if not_empty:
+                if last_row == worksheet.max_row:
+                    last_row += 1
                 break
             last_row = row_id
 
@@ -175,6 +177,8 @@ def match_inf_res(xlsx_path: Path,
         last_col = worksheet.max_column
         for col_id, not_empty in sorted([(col_id, not_empty) for col_id, not_empty in col_fill.items()], reverse=True, key=lambda x: x[0]):
             if not_empty:
+                if last_col == worksheet.max_column:
+                    last_col += 1
                 break
             last_col = col_id
 
@@ -233,6 +237,9 @@ def match_inf_res(xlsx_path: Path,
                         cols_in_table.append((col_id, int(prev_coord * x_scale), int(coord * x_scale)))
                 prev_coord = coord
 
+            if not rows_in_table or not cols_in_table:
+                continue
+
             rows = [row for row, start, end in rows_in_table]
             cols = [col for col, start, end in cols_in_table]
 
@@ -286,8 +293,8 @@ def match_inf_res(xlsx_path: Path,
                                                 bbox=BorderBox(
                                                     top_left_y=r_start,
                                                     top_left_x=c_start,
-                                                    bottom_right_y=[r_e for r, r_s, r_e in rows_in_table if r == m_range.max_row][0],
-                                                    bottom_right_x=[c_e for c, c_s, c_e in cols_in_table if c == m_range.max_col][0]
+                                                    bottom_right_y=[r_e for r, r_s, r_e in rows_in_table if r == m_range.max_row][0] if [r_e for r, r_s, r_e in rows_in_table if r == m_range.max_row] else rows_in_table[-1][2],
+                                                    bottom_right_x=[c_e for c, c_s, c_e in cols_in_table if c == m_range.max_col][0] if [c_e for c, c_s, c_e in cols_in_table if c == m_range.max_col] else cols_in_table[-1][2]
                                                 ),
                                                 text=str(m_range.start_cell.value) if m_range.start_cell.value else ''
                                             )
