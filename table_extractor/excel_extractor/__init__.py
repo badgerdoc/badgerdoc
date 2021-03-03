@@ -152,14 +152,40 @@ def match_inf_res(xlsx_path: Path,
     workbook = load_workbook(str(xlsx_path.absolute()))
     for page_num, (worksheet, (inf_tables, headers), img_shape) \
             in enumerate(zip(workbook.worksheets, inf_results, img_shapes)):
-        height = 0
+        row_fill = {}
         for row_id in range(1, worksheet.max_row + 1):
+            row_fill[row_id] = False
+            for col_id in range(1, worksheet.max_column + 1):
+                if worksheet.cell(row_id, col_id).value:
+                    row_fill[row_id] = True
+                    break
+        last_row = worksheet.max_row
+        for row_id, not_empty in sorted([(row_id, not_empty) for row_id, not_empty in row_fill.items()], reverse=True, key=lambda x: x[0]):
+            if not_empty:
+                break
+            last_row = row_id
+
+        col_fill = {}
+        for col_id in range(1, worksheet.max_column + 1):
+            col_fill[col_id] = False
+            for row_id in range(1, worksheet.max_row + 1):
+                if worksheet.cell(row_id, col_id).value:
+                    col_fill[col_id] = True
+                    break
+        last_col = worksheet.max_column
+        for col_id, not_empty in sorted([(col_id, not_empty) for col_id, not_empty in col_fill.items()], reverse=True, key=lambda x: x[0]):
+            if not_empty:
+                break
+            last_col = col_id
+
+        height = 0
+        for row_id in range(1, last_row):
             if worksheet.row_dimensions[row_id].height:
                 height += worksheet.row_dimensions[row_id].height
             else:
                 height += DEFAULT_HEIGHT
         width = 0
-        for col_id in range(1, worksheet.max_column + 1):
+        for col_id in range(1, last_col):
             if worksheet.column_dimensions[get_column_letter(col_id)].width:
                 width += worksheet.column_dimensions[get_column_letter(col_id)].width
             else:
@@ -168,10 +194,11 @@ def match_inf_res(xlsx_path: Path,
         x_scale = img_shape[1] / width
 
         tables = []
+        table_zones = []
         for inf_table in inf_tables:
             rows_in_table = []
             prev_coord = 0
-            for row_id in range(1, worksheet.max_row + 1):
+            for row_id in range(1, last_row):
                 coord = prev_coord + (worksheet.row_dimensions[row_id].height if worksheet.row_dimensions[row_id].height else DEFAULT_HEIGHT)
                 if inf_table.bbox.top_left_y < prev_coord * y_scale < inf_table.bbox.bottom_right_y \
                         and inf_table.bbox.top_left_y < coord * y_scale < inf_table.bbox.bottom_right_y:
@@ -188,7 +215,7 @@ def match_inf_res(xlsx_path: Path,
 
             cols_in_table = []
             prev_coord = 0
-            for col_id in range(1, worksheet.max_column + 1):
+            for col_id in range(1, last_col):
                 coord = prev_coord + (worksheet.column_dimensions[get_column_letter(col_id)].width
                                       if worksheet.column_dimensions[get_column_letter(col_id)].width else DEFAULT_WIDTH)
                 if inf_table.bbox.top_left_x < prev_coord * x_scale < inf_table.bbox.bottom_right_x \
@@ -218,7 +245,7 @@ def match_inf_res(xlsx_path: Path,
 
             rows_in_table = []
             prev_coord = 0
-            for row_id in range(1, worksheet.max_row + 1):
+            for row_id in range(1, last_row):
                 coord = prev_coord + (worksheet.row_dimensions[row_id].height
                                       if worksheet.row_dimensions[row_id].height else DEFAULT_HEIGHT)
                 if row_id in rows:
@@ -227,7 +254,7 @@ def match_inf_res(xlsx_path: Path,
 
             cols_in_table = []
             prev_coord = 0
-            for col_id in range(1, worksheet.max_column + 1):
+            for col_id in range(1, last_col):
                 coord = prev_coord + (worksheet.column_dimensions[get_column_letter(col_id)].width
                                       if worksheet.column_dimensions[get_column_letter(col_id)].width else DEFAULT_WIDTH)
                 if col_id in cols:
@@ -314,6 +341,33 @@ def match_inf_res(xlsx_path: Path,
                     for c in range(col, col + col_span):
                         worksheet.cell(r, c).fill = HEADER_FILL
 
+            table_zone = (rows_in_table[0][0], cols_in_table[0][0], rows_in_table[-1][0], cols_in_table[-1][0])
+            table_zones.append(table_zone)
+
+        blocks = []
+        blocks.extend(tables)
+        prev_row_coord = 0
+        for row_id in range(1, last_row):
+            row_coord = prev_row_coord + (worksheet.row_dimensions[row_id].height
+                                          if worksheet.row_dimensions[row_id].height else DEFAULT_HEIGHT)
+            prev_col_coord = 0
+            for col_id in range(1, last_col):
+                col_coord = prev_col_coord + (worksheet.column_dimensions[get_column_letter(col_id)].width
+                                              if worksheet.column_dimensions[get_column_letter(col_id)].width else DEFAULT_WIDTH)
+                if worksheet.cell(row_id, col_id).value and not any([y1 <= row_id < y2 and x1 <= col_id < x2 for y1, x1, y2, x2 in table_zones]):
+                    text_field = TextField(
+                        bbox=BorderBox(
+                            top_left_x=prev_col_coord * x_scale,
+                            top_left_y=prev_row_coord * y_scale,
+                            bottom_right_x=col_coord * x_scale,
+                            bottom_right_y=row_coord * y_scale
+                        ),
+                        text=str(worksheet.cell(row_id, col_id).value)
+                    )
+                    blocks.append(text_field)
+                prev_col_coord = col_coord
+            prev_row_coord = row_coord
+
         pages.append(page_to_dict(Page(
             page_num=page_num,
             bbox=BorderBox(
@@ -322,7 +376,7 @@ def match_inf_res(xlsx_path: Path,
                 bottom_right_x=img_shape[1],
                 bottom_right_y=img_shape[0]
             ),
-            tables=tables
+            tables=blocks
         )))
     workbook.save(str(xlsx_path.absolute()))
     workbook.close()
@@ -360,9 +414,7 @@ def run_excel_job(file: str, outpath: str):
     for image in sorted(images_dir.glob('*.png')):
         inf_results.append(cascade_rcnn_detector.inference_image(image, padding=200))
 
-    crop_padding(inf_results, padding=200)
-
-    create_copy_xlsx(Path(file), out_dir, 'prep_header.xlsx')
+    create_copy_xlsx(Path(file), out_dir, 'with_header.xlsx')
 
     image_shapes = []
     for image in sorted(images_dir.glob('*.png')):
@@ -370,7 +422,7 @@ def run_excel_job(file: str, outpath: str):
         image_shapes.append(img.shape[:2])
 
     pages = match_inf_res(
-        out_dir / 'prep_header.xlsx',
+        out_dir / 'with_header.xlsx',
         inf_results,
         image_shapes
     )

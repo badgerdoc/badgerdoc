@@ -204,6 +204,7 @@ def table_to_dict(table: StructuredTableHeadered):
         for cell in row:
             header.append(cell)
     return {
+        'type': 'table',
         'bbox': {
             'left': table.bbox.top_left_x,
             'top': table.bbox.top_left_y,
@@ -217,6 +218,7 @@ def table_to_dict(table: StructuredTableHeadered):
 
 def text_to_dict(text: TextField):
     return {
+        'type': 'text_block',
         'bbox': {
             'left': text.bbox.top_left_x,
             'top': text.bbox.top_left_y,

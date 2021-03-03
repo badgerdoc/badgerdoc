@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from typing import Dict, List, Any, Tuple
+from typing import Dict, List, Any, Tuple, Union
 
 import cv2
 import numpy as np
@@ -100,8 +100,11 @@ def inference_result_to_boxes(inference_page_result: List[Dict[str, Any]]) \
     return filtered, raw_headers, not_matched
 
 
-def add_padding(img: Path, padding: int):
-    img_arr = cv2.imread(str(img.absolute()))
+def add_padding(img: Union[Path, np.ndarray], padding: int):
+    if isinstance(img, Path):
+        img_arr = cv2.imread(str(img.absolute()))
+    else:
+        img_arr = img
     new_shape = img_arr.shape[0] + 2 * padding, img_arr.shape[1] + 2 * padding, img_arr.shape[2]
     new_img = np.ones(shape=new_shape) * 255
     new_img[padding:img_arr.shape[0] + padding, padding:img_arr.shape[1] + padding, :] = img_arr
@@ -126,6 +129,25 @@ def shift(inf_tables: List[InferenceTable], headers: List[Cell], pic_shift: int,
         header.bottom_right_x = header.bottom_right_x + padding
 
 
+def crop_padding(inf_results: List[Tuple[List[InferenceTable], List[Cell]]], padding: int):
+    for inf_tables, headers in inf_results:
+        for table in inf_tables:
+            table.bbox.top_left_x = table.bbox.top_left_x - padding
+            table.bbox.top_left_y = table.bbox.top_left_y - padding
+            table.bbox.bottom_right_x = table.bbox.bottom_right_x - padding
+            table.bbox.bottom_right_y = table.bbox.bottom_right_y - padding
+            for cell in table.tags:
+                cell.top_left_x = cell.top_left_x - padding
+                cell.top_left_y = cell.top_left_y - padding
+                cell.bottom_right_x = cell.bottom_right_x - padding
+                cell.bottom_right_y = cell.bottom_right_y - padding
+        for header in headers:
+            header.top_left_x = header.top_left_x - padding
+            header.top_left_y = header.top_left_y - padding
+            header.bottom_right_x = header.bottom_right_x - padding
+            header.bottom_right_y = header.bottom_right_y - padding
+
+
 class CascadeRCNNInferenceService:
     def __init__(self, config: Path, model: Path, should_visualize: bool = False):
         self.model = init_detector(str(config.absolute()), str(model.absolute()), device='cpu')
@@ -144,8 +166,9 @@ class CascadeRCNNInferenceService:
         tables = []
         headers = []
 
-        prev_shape = padding
+        prev_shape = 0
         for num, split in enumerate(splits):
+            split = add_padding(split, padding)
             result = inference_detector(self.model, split)
             if self.should_visualize:
                 inference_image = self.model.show_result(split, result, thickness=2)
@@ -154,7 +177,8 @@ class CascadeRCNNInferenceService:
                 cv2.imwrite(str(image_path.absolute()), inference_image)
             inf_tables, header, _ = inference_result_to_boxes(
                 extract_boxes_from_result(result, CLASS_NAMES, score_thr=threshold))
-            shift(inf_tables, headers, prev_shape, padding)
+            crop_padding([(inf_tables, headers)], padding)
+            shift(inf_tables, headers, prev_shape, 0)
             tables.extend(inf_tables)
             headers.extend(header)
             prev_shape += split.shape[0]
@@ -175,6 +199,10 @@ class CascadeRCNNInferenceService:
                 image_path = img.parent.parent / "raw_model" / img.name
                 image_path.parent.mkdir(parents=True, exist_ok=True)
                 cv2.imwrite(str(image_path.absolute()), inference_image)
+            inf_tables, headers, _ = inference_result_to_boxes(
+                extract_boxes_from_result(result, CLASS_NAMES, score_thr=threshold))
+            crop_padding([(inf_tables, headers)], padding)
+            return inf_tables, headers
         else:
             result = inference_detector(self.model, img)
             if self.should_visualize:
