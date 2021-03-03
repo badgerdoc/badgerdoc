@@ -190,6 +190,8 @@ def match_inf_res(xlsx_path: Path,
                 width += worksheet.column_dimensions[get_column_letter(col_id)].width
             else:
                 width += DEFAULT_WIDTH
+        if height == 0 or width == 0:
+            continue
         y_scale = img_shape[0] / height
         x_scale = img_shape[1] / width
 
