@@ -472,7 +472,7 @@ def match_inf_res(xlsx_path: Path,
                                                   if worksheet.column_dimensions[
                         get_column_letter(col_id)].width else DEFAULT_WIDTH)
                     if worksheet.cell(row_id, col_id).value and not any(
-                            [y1 <= row_id < y2 and x1 <= col_id < x2 for y1, x1, y2, x2 in table_zones]):
+                            [y1 <= row_id <= y2 and x1 <= col_id <= x2 for y1, x1, y2, x2 in table_zones]):
                         text_field = TextField(
                             bbox=BorderBox(
                                 top_left_x=prev_col_coord * x_scale,
