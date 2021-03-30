@@ -1,0 +1,7 @@
+-r requirements.in
+
+mypy
+black
+flakehell
+isort
+pre-commit
