@@ -1,28 +1,47 @@
 import json
 import logging
-from typing import List, Tuple, Dict, Any, Union
-
 from pathlib import Path
+from typing import Any, Dict, List, Tuple, Union
 
 import cv2
 import numpy as np
 from tesserocr import PSM
 
-from table_extractor.bordered_service.bordered_tables_detection import detect_tables_on_page
+from table_extractor.bordered_service.bordered_tables_detection import (
+    detect_tables_on_page,
+)
 from table_extractor.bordered_service.models import InferenceTable, Page
-from table_extractor.cascade_rcnn_service.inference import CascadeRCNNInferenceService
+from table_extractor.borderless_service.semi_bordered import semi_bordered
+from table_extractor.cascade_rcnn_service.inference import (
+    CascadeRCNNInferenceService,
+)
 from table_extractor.headers.header_utils import HeaderChecker
-from table_extractor.inference_table_service.constuct_table_from_inference import construct_table_from_cells, \
-    find_grid_table, reconstruct_table_from_grid
-from table_extractor.model.table import StructuredTable, TextField, Cell, Table, BorderBox, CellLinked, \
-    StructuredTableHeadered
+from table_extractor.inference_table_service.constuct_table_from_inference import (
+    construct_table_from_cells,
+    find_grid_table,
+    reconstruct_table_from_grid,
+)
+from table_extractor.model.table import (
+    BorderBox,
+    Cell,
+    CellLinked,
+    StructuredTable,
+    StructuredTableHeadered,
+    Table,
+    TextField,
+)
 from table_extractor.paddle_service.text_detector import PaddleDetector
 from table_extractor.pdf_service.pdf_to_image import convert_pdf_to_images
-from table_extractor.poppler_service.poppler_text_extractor import extract_text, \
-    poppler_text_field_to_text_field, PopplerPage
-from table_extractor.borderless_service.semi_bordered import semi_bordered
+from table_extractor.poppler_service.poppler_text_extractor import (
+    PopplerPage,
+    extract_text,
+    poppler_text_field_to_text_field,
+)
 from table_extractor.tesseract_service.tesseract_extractor import TextExtractor
-from table_extractor.text_cells_matcher.text_cells_matcher import match_table_text, match_cells_text_fields
+from table_extractor.text_cells_matcher.text_cells_matcher import (
+    match_cells_text_fields,
+    match_table_text,
+)
 from table_extractor.visualization.table_visualizer import TableVisualizer
 
 logger = logging.getLogger(__name__)
@@ -34,10 +53,10 @@ def cnt_ciphers(cells: List[Cell]):
     for cell in cells:
         sentence = "".join([tb.text for tb in cell.text_boxes])
         for char in sentence:
-            if char in '0123456789':
+            if char in "0123456789":
                 count += 1
         all_chars_count += len(sentence)
-    return count / all_chars_count if all_chars_count else 0.
+    return count / all_chars_count if all_chars_count else 0.0
 
 
 def actualize_header(table: StructuredTable):
@@ -53,25 +72,31 @@ def actualize_header(table: StructuredTable):
             header_candidates.append(row)
 
     if len(header_candidates) < len(table_rows):
-        return StructuredTableHeadered.from_structured_and_rows(table, header_candidates)
+        return StructuredTableHeadered.from_structured_and_rows(
+            table, header_candidates
+        )
     return StructuredTableHeadered(
-        bbox=table.bbox,
-        cells=table.cells,
-        header=[]
+        bbox=table.bbox, cells=table.cells, header=[]
     )
 
 
-def merge_text_fields(paddle_t_b: List[TextField], poppler_t_b: List[TextField]) -> List[TextField]:
+def merge_text_fields(
+    paddle_t_b: List[TextField], poppler_t_b: List[TextField]
+) -> List[TextField]:
     not_matched = []
     merged_t_b = []
     for pop_t_b in poppler_t_b:
         merged = False
         for pad_t_b in paddle_t_b:
-            if pop_t_b.bbox.box_is_inside_another(pad_t_b.bbox, threshold=0.00):
-                merged_t_b.append(TextField(
-                    bbox=pad_t_b.bbox.merge(pop_t_b.bbox),
-                    text=pop_t_b.text
-                ))
+            if pop_t_b.bbox.box_is_inside_another(
+                pad_t_b.bbox, threshold=0.00
+            ):
+                merged_t_b.append(
+                    TextField(
+                        bbox=pad_t_b.bbox.merge(pop_t_b.bbox),
+                        text=pop_t_b.text,
+                    )
+                )
                 merged = True
         if not merged:
             not_matched.append(pop_t_b)
@@ -95,23 +120,31 @@ def text_to_cell(text_field: TextField):
         top_left_y=text_field.bbox.top_left_y,
         bottom_right_x=text_field.bbox.bottom_right_x,
         bottom_right_y=text_field.bbox.bottom_right_y,
-        text_boxes=[text_field]
+        text_boxes=[text_field],
     )
 
 
 def merge_closest_text_fields(text_fields: List[TextField]):
     merged_fields: List[TextField] = []
     curr_field: TextField = None
-    for text_field in sorted(text_fields, key=lambda x: (x.bbox.top_left_y, x.bbox.top_left_x)):
+    for text_field in sorted(
+        text_fields, key=lambda x: (x.bbox.top_left_y, x.bbox.top_left_x)
+    ):
         if not curr_field:
             curr_field = text_field
             continue
         if curr_field:
-            if 20 > text_field.bbox.top_left_x - curr_field.bbox.bottom_right_x > -20\
-                    and curr_field.bbox.top_left_y - 10 < text_field.bbox.top_left_y < curr_field.bbox.top_left_y + 10:
+            if (
+                20
+                > text_field.bbox.top_left_x - curr_field.bbox.bottom_right_x
+                > -20
+                and curr_field.bbox.top_left_y - 10
+                < text_field.bbox.top_left_y
+                < curr_field.bbox.top_left_y + 10
+            ):
                 curr_field = TextField(
                     bbox=curr_field.bbox.merge(text_field.bbox),
-                    text=curr_field.text + " " + text_field.text
+                    text=curr_field.text + " " + text_field.text,
                 )
             else:
                 merged_fields.append(curr_field)
@@ -122,7 +155,9 @@ def merge_closest_text_fields(text_fields: List[TextField]):
     return merged_fields
 
 
-def pdf_preprocess(pdf_path: Path, output_path: Path) -> Tuple[Path, Dict[str, PopplerPage]]:
+def pdf_preprocess(
+    pdf_path: Path, output_path: Path
+) -> Tuple[Path, Dict[str, PopplerPage]]:
     images_path = convert_pdf_to_images(pdf_path, output_path)
     poppler_pages = extract_text(pdf_path)
     return images_path, poppler_pages
@@ -131,19 +166,22 @@ def pdf_preprocess(pdf_path: Path, output_path: Path) -> Tuple[Path, Dict[str, P
 def actualize_text(table: StructuredTable, image_path: Path, img_shape):
     with TextExtractor(str(image_path.absolute())) as te:
         for cell in table.cells:
-            if not cell.text_boxes or any([not text_box.text for text_box in cell.text_boxes]):
+            if not cell.text_boxes or any(
+                [not text_box.text for text_box in cell.text_boxes]
+            ):
                 cell.top_left_x = max(0, cell.top_left_x)
                 cell.top_left_y = max(0, cell.top_left_y)
                 cell.bottom_right_x = min(img_shape[1], cell.bottom_right_x)
                 cell.bottom_right_y = min(img_shape[0], cell.bottom_right_y)
                 text, _ = te.extract(
-                    cell.top_left_x, cell.top_left_y,
-                    cell.width, cell.height
+                    cell.top_left_x, cell.top_left_y, cell.width, cell.height
                 )
                 cell.text_boxes.append(TextField(bbox=cell, text=text))
 
 
-def semi_border_to_struct(semi_border: Table, image_shape: Tuple[int, int]) -> StructuredTable:
+def semi_border_to_struct(
+    semi_border: Table, image_shape: Tuple[int, int]
+) -> StructuredTable:
     cells = []
     for row in semi_border.rows:
         cells.extend(row.objs)
@@ -151,7 +189,9 @@ def semi_border_to_struct(semi_border: Table, image_shape: Tuple[int, int]) -> S
     semi_border.bbox.top_left_x = semi_border.bbox.top_left_x - 20
     semi_border.bbox.bottom_right_y = semi_border.bbox.bottom_right_y + 20
     semi_border.bbox.bottom_right_x = semi_border.bbox.bottom_right_x + 20
-    structured_table = construct_table_from_cells(semi_border.bbox, cells, image_shape)
+    structured_table = construct_table_from_cells(
+        semi_border.bbox, cells, image_shape
+    )
     return structured_table
 
 
@@ -183,18 +223,25 @@ def bordered_to_struct(bordered_table: Table) -> StructuredTable:
 
 def cell_to_dict(cell: CellLinked):
     return {
-        'row': cell.row,
-        'column': cell.col,
-        'rowspan': cell.row_span,
-        'colspan': cell.col_span,
-        'bbox': {
-            'left': cell.top_left_x,
-            'top': cell.top_left_y,
-            'height': cell.height,
-            'width': cell.width
+        "row": cell.row,
+        "column": cell.col,
+        "rowspan": cell.row_span,
+        "colspan": cell.col_span,
+        "bbox": {
+            "left": cell.top_left_x,
+            "top": cell.top_left_y,
+            "height": cell.height,
+            "width": cell.width,
         },
-        'text': " ".join([field.text for field in
-                          sorted(cell.text_boxes, key=lambda x: (x.bbox.top_left_y, x.bbox.top_left_x))])
+        "text": " ".join(
+            [
+                field.text
+                for field in sorted(
+                    cell.text_boxes,
+                    key=lambda x: (x.bbox.top_left_y, x.bbox.top_left_x),
+                )
+            ]
+        ),
     }
 
 
@@ -204,28 +251,28 @@ def table_to_dict(table: StructuredTableHeadered):
         for cell in row:
             header.append(cell)
     return {
-        'type': 'table',
-        'bbox': {
-            'left': table.bbox.top_left_x,
-            'top': table.bbox.top_left_y,
-            'height': table.bbox.height,
-            'width': table.bbox.width
+        "type": "table",
+        "bbox": {
+            "left": table.bbox.top_left_x,
+            "top": table.bbox.top_left_y,
+            "height": table.bbox.height,
+            "width": table.bbox.width,
         },
-        'header': [cell_to_dict(cell) for cell in header],
-        'cells': [cell_to_dict(cell) for cell in table.cells]
+        "header": [cell_to_dict(cell) for cell in header],
+        "cells": [cell_to_dict(cell) for cell in table.cells],
     }
 
 
 def text_to_dict(text: TextField):
     return {
-        'type': 'text_block',
-        'bbox': {
-            'left': text.bbox.top_left_x,
-            'top': text.bbox.top_left_y,
-            'height': text.bbox.height,
-            'width': text.bbox.width
+        "type": "text_block",
+        "bbox": {
+            "left": text.bbox.top_left_x,
+            "top": text.bbox.top_left_y,
+            "height": text.bbox.height,
+            "width": text.bbox.width,
         },
-        'text': text.text
+        "text": text.text,
     }
 
 
@@ -240,20 +287,20 @@ def block_to_dict(block: Union[TextField, StructuredTableHeadered]):
 def page_to_dict(page: Page):
     blocks = page.blocks
     return {
-        'page_num': page.page_num,
-        'bbox': {
-            'left': page.bbox.top_left_x,
-            'top': page.bbox.top_left_y,
-            'height': page.bbox.height,
-            'width': page.bbox.width
+        "page_num": page.page_num,
+        "bbox": {
+            "left": page.bbox.top_left_x,
+            "top": page.bbox.top_left_y,
+            "height": page.bbox.height,
+            "width": page.bbox.width,
         },
-        'blocks': [block_to_dict(block) for block in blocks],
+        "blocks": [block_to_dict(block) for block in blocks],
     }
 
 
 def save_page(page_dict: Dict, path: Path):
     path.parent.mkdir(parents=True, exist_ok=True)
-    with open(str(path.absolute()), 'w') as f:
+    with open(str(path.absolute()), "w") as f:
         f.write(json.dumps(page_dict, indent=4))
 
 
@@ -264,20 +311,23 @@ def softmax(array: Tuple[float]) -> List[float]:
 
 
 class PageProcessor:
-    def __init__(self,
-                 inference_service: CascadeRCNNInferenceService,
-                 text_detector: PaddleDetector,
-                 visualizer: TableVisualizer,
-                 paddle_on=True
-                 ):
+    def __init__(
+        self,
+        inference_service: CascadeRCNNInferenceService,
+        text_detector: PaddleDetector,
+        visualizer: TableVisualizer,
+        paddle_on=True,
+    ):
         self.inference_service = inference_service
         self.text_detector = text_detector
         self.visualizer = visualizer
         self.paddle_on = paddle_on
         self.header_checker = HeaderChecker()
 
-    def cell_in_inf_header(self, cell: CellLinked, inf_headers: List[Cell]) -> float:
-        confidences = [0.]
+    def cell_in_inf_header(
+        self, cell: CellLinked, inf_headers: List[Cell]
+    ) -> float:
+        confidences = [0.0]
         for header in inf_headers:
             if cell.box_is_inside_another(header):
                 confidences.append(header.confidence)
@@ -289,8 +339,12 @@ class PageProcessor:
         first_line = False
         for cell in series:
             inf_header_score = self.cell_in_inf_header(cell, inf_headers)
-            header_score, cell_score = softmax(self.header_checker.get_cell_score(cell))
-            header_score, cell_score = softmax((header_score + inf_header_score, cell_score))
+            header_score, cell_score = softmax(
+                self.header_checker.get_cell_score(cell)
+            )
+            header_score, cell_score = softmax(
+                (header_score + inf_header_score, cell_score)
+            )
 
             if header_score > cell_score:
                 headers.append(cell)
@@ -303,7 +357,12 @@ class PageProcessor:
         # return len(headers) > (len(series) / 5) if len(series) > thresh else len(headers) > (len(series) / 2)
         return len(headers) > (len(series) / 2)
 
-    def create_header(self, series: List[List[CellLinked]], inf_headers: List[Cell], header_limit: int):
+    def create_header(
+        self,
+        series: List[List[CellLinked]],
+        inf_headers: List[Cell],
+        header_limit: int,
+    ):
         """
         Search for headers based on cells contents
         @param series: cols or rows of the table
@@ -320,13 +379,18 @@ class PageProcessor:
                 header_candidates.append((idx, False, line))
 
         if last_header is not None:
-            header = [line for idx, is_header, line in header_candidates[:last_header + 1]]
+            header = [
+                line
+                for idx, is_header, line in header_candidates[
+                    : last_header + 1
+                ]
+            ]
         else:
             header = []
 
         if len(header) > 0.75 * len(series):
-            with open('cases75.txt', 'a') as f:
-                f.write(str(series) + '\n')
+            with open("cases75.txt", "a") as f:
+                f.write(str(series) + "\n")
             header = []
 
         return header
@@ -335,62 +399,112 @@ class PageProcessor:
     def _count_empty_cells(series: List[CellLinked]):
         return len([True for cell in series if cell.is_empty()])
 
-    def extract_table_from_inference(self,
-                                     img,
-                                     inf_table: InferenceTable,
-                                     not_matched_text: List[TextField],
-                                     image_shape: Tuple[int, int],
-                                     image_path: Path) -> StructuredTable:
+    def extract_table_from_inference(
+        self,
+        img,
+        inf_table: InferenceTable,
+        not_matched_text: List[TextField],
+        image_shape: Tuple[int, int],
+        image_path: Path,
+    ) -> StructuredTable:
         merged_t_f = merge_closest_text_fields(not_matched_text)
 
         for cell in inf_table.tags:
             if cell.text_boxes:
-                cell.top_left_x = min([text_box.bbox.top_left_x for text_box in cell.text_boxes] + [cell.top_left_x])
-                cell.top_left_y = min([text_box.bbox.top_left_y for text_box in cell.text_boxes] + [cell.top_left_y])
-                cell.bottom_right_x = \
-                    max([text_box.bbox.bottom_right_x for text_box in cell.text_boxes] + [cell.bottom_right_x])
-                cell.bottom_right_y = \
-                    max([text_box.bbox.bottom_right_y for text_box in cell.text_boxes] + [cell.bottom_right_y])
+                cell.top_left_x = min(
+                    [text_box.bbox.top_left_x for text_box in cell.text_boxes]
+                    + [cell.top_left_x]
+                )
+                cell.top_left_y = min(
+                    [text_box.bbox.top_left_y for text_box in cell.text_boxes]
+                    + [cell.top_left_y]
+                )
+                cell.bottom_right_x = max(
+                    [
+                        text_box.bbox.bottom_right_x
+                        for text_box in cell.text_boxes
+                    ]
+                    + [cell.bottom_right_x]
+                )
+                cell.bottom_right_y = max(
+                    [
+                        text_box.bbox.bottom_right_y
+                        for text_box in cell.text_boxes
+                    ]
+                    + [cell.bottom_right_y]
+                )
 
-        inf_table.tags.extend([text_to_cell(text_field) for text_field in merged_t_f])
+        inf_table.tags.extend(
+            [text_to_cell(text_field) for text_field in merged_t_f]
+        )
 
-        inf_table.bbox.top_left_y = min(inf_table.bbox.top_left_y,
-                                        min([cell.top_left_y for cell in inf_table.tags]) - 50)
-        inf_table.bbox.top_left_x = min(inf_table.bbox.top_left_x,
-                                        min([cell.top_left_x for cell in inf_table.tags]) - 50)
-        inf_table.bbox.bottom_right_y = max(inf_table.bbox.bottom_right_y,
-                                            max([cell.bottom_right_y for cell in inf_table.tags]) + 50)
-        inf_table.bbox.bottom_right_x = max(inf_table.bbox.bottom_right_x,
-                                            max([cell.bottom_right_x for cell in inf_table.tags]) + 50)
+        inf_table.bbox.top_left_y = min(
+            inf_table.bbox.top_left_y,
+            min([cell.top_left_y for cell in inf_table.tags]) - 50,
+        )
+        inf_table.bbox.top_left_x = min(
+            inf_table.bbox.top_left_x,
+            min([cell.top_left_x for cell in inf_table.tags]) - 50,
+        )
+        inf_table.bbox.bottom_right_y = max(
+            inf_table.bbox.bottom_right_y,
+            max([cell.bottom_right_y for cell in inf_table.tags]) + 50,
+        )
+        inf_table.bbox.bottom_right_x = max(
+            inf_table.bbox.bottom_right_x,
+            max([cell.bottom_right_x for cell in inf_table.tags]) + 50,
+        )
 
-        self.visualizer.draw_object_and_save(img, [inf_table],
-                                             image_path.parent.parent / 'modified_cells'
-                                             / f"{str(image_path.name).replace('.png', '')}_"
-                                               f"{inf_table.bbox.top_left_x}_{inf_table.bbox.top_left_y}.png")
-        return construct_table_from_cells(inf_table.bbox, inf_table.tags, image_shape)
+        self.visualizer.draw_object_and_save(
+            img,
+            [inf_table],
+            image_path.parent.parent
+            / "modified_cells"
+            / f"{str(image_path.name).replace('.png', '')}_"
+            f"{inf_table.bbox.top_left_x}_{inf_table.bbox.top_left_y}.png",
+        )
+        return construct_table_from_cells(
+            inf_table.bbox, inf_table.tags, image_shape
+        )
 
-    def _scale_poppler_result(self, img, output_path, poppler_page, image_path):
+    def _scale_poppler_result(
+        self, img, output_path, poppler_page, image_path
+    ):
         scale = img.shape[0] / poppler_page.bbox.height
-        text_fields = [poppler_text_field_to_text_field(text_field, scale) for text_field in poppler_page.text_fields]
+        text_fields = [
+            poppler_text_field_to_text_field(text_field, scale)
+            for text_field in poppler_page.text_fields
+        ]
         if text_fields:
-            self.visualizer.draw_object_and_save(img, text_fields,
-                                                 Path(f"{output_path}/poppler_text/{image_path.name}"))
+            self.visualizer.draw_object_and_save(
+                img,
+                text_fields,
+                Path(f"{output_path}/poppler_text/{image_path.name}"),
+            )
         return text_fields
 
-    def process_pages(self, images_path: Path, poppler_pages: Dict[str, PopplerPage]) -> List:
+    def process_pages(
+        self, images_path: Path, poppler_pages: Dict[str, PopplerPage]
+    ) -> List:
         pages = []
         for image_path in sorted(images_path.glob("*.png")):
             try:
-                pages.append(self.process_page(image_path,
-                                               images_path.parent,
-                                               poppler_pages[image_path.name.split(".")[0]]))
+                pages.append(
+                    self.process_page(
+                        image_path,
+                        images_path.parent,
+                        poppler_pages[image_path.name.split(".")[0]],
+                    )
+                )
             except Exception as e:
                 # ToDo: Rewrite, needed to not to fail pipeline for now in sequential mode
                 logger.warning(str(e))
                 raise e
         return pages
 
-    def process_page(self, image_path: Path, output_path: Path, poppler_page) -> Dict[str, Any]:
+    def process_page(
+        self, image_path: Path, output_path: Path, poppler_page
+    ) -> Dict[str, Any]:
         img = cv2.imread(str(image_path.absolute()))
         page = Page(
             page_num=int(image_path.name.split(".")[0]),
@@ -398,37 +512,56 @@ class PageProcessor:
                 top_left_x=0,
                 top_left_y=0,
                 bottom_right_x=img.shape[1],
-                bottom_right_y=img.shape[0]
-            )
+                bottom_right_y=img.shape[0],
+            ),
         )
-        text_fields = self._scale_poppler_result(img, output_path, poppler_page, image_path)
+        text_fields = self._scale_poppler_result(
+            img, output_path, poppler_page, image_path
+        )
 
         logger.info("Start inference")
-        inference_tables, headers = self.inference_service.inference_image(image_path)
+        inference_tables, headers = self.inference_service.inference_image(
+            image_path
+        )
         logger.info("End inference")
         self.visualizer.draw_object_and_save(
-            img, inference_tables, Path(f"{output_path}/inference_result/{image_path.name}"), headers=headers)
+            img,
+            inference_tables,
+            Path(f"{output_path}/inference_result/{image_path.name}"),
+            headers=headers,
+        )
 
         if inference_tables:
             logger.info("Start bordered")
-            image = detect_tables_on_page(image_path, draw=self.visualizer.should_visualize)
+            image = detect_tables_on_page(
+                image_path, draw=self.visualizer.should_visualize
+            )
             logger.info("End bordered")
             text_fields_to_match = text_fields
             bordered_tables = []
             if image.tables:
                 for bordered_table in image.tables:
-                        in_table, text_fields_to_match = match_table_text(bordered_table, text_fields_to_match)
-                        _ = match_cells_table(in_table, bordered_table)
-                        bordered_tables.append(semi_border_to_struct(bordered_table, img.shape))
+                    in_table, text_fields_to_match = match_table_text(
+                        bordered_table, text_fields_to_match
+                    )
+                    _ = match_cells_table(in_table, bordered_table)
+                    bordered_tables.append(
+                        semi_border_to_struct(bordered_table, img.shape)
+                    )
 
             inf_tables_to_detect = []
             for inf_table in inference_tables:
                 matched = False
                 if image.tables:
                     for bordered_table in bordered_tables:
-                        if inf_table.bbox.box_is_inside_another(bordered_table.bbox, 0.8)\
-                                and inf_table.label == 'Bordered'\
-                                and len(bordered_table.cells) > len(inf_table.tags) * 0.5:
+                        if (
+                            inf_table.bbox.box_is_inside_another(
+                                bordered_table.bbox, 0.8
+                            )
+                            and inf_table.label == "Bordered"
+                            and len(bordered_table.cells)
+                            > len(inf_table.tags) * 0.5
+                        ):
                             matched = True
                             page.tables.append(bordered_table)
                 if not matched:
@@ -436,26 +569,43 @@ class PageProcessor:
 
             semi_bordered_tables = []
             for inf_table in inf_tables_to_detect:
-                in_inf_table, text_fields_to_match = match_table_text(inf_table, text_fields_to_match)
+                in_inf_table, text_fields_to_match = match_table_text(
+                    inf_table, text_fields_to_match
+                )
                 logger.info("Start paddle")
-                paddle_fields = self.text_detector.extract_table_text(img, inf_table.bbox)
+                paddle_fields = self.text_detector.extract_table_text(
+                    img, inf_table.bbox
+                )
                 logger.info("End paddle")
                 if paddle_fields:
-                    in_inf_table = merge_text_fields(paddle_fields, in_inf_table)
+                    in_inf_table = merge_text_fields(
+                        paddle_fields, in_inf_table
+                    )
 
-                mask_rcnn_count_matches, not_matched = match_cells_text_fields(inf_table.tags, in_inf_table)
+                mask_rcnn_count_matches, not_matched = match_cells_text_fields(
+                    inf_table.tags, in_inf_table
+                )
 
-                if inf_table.label == 'Borderless' and False:
+                if inf_table.label == "Borderless" and False:
                     semi_border = semi_bordered(img, inf_table)
                     if semi_border:
                         semi_bordered_tables.append(semi_border)
-                        semi_border_score = match_cells_table(in_inf_table, semi_border)
-                        if semi_border_score >= mask_rcnn_count_matches and semi_border.count_cells() > len(inf_table.tags):
-                            struct_table = semi_border_to_struct(semi_border, img.shape)
+                        semi_border_score = match_cells_table(
+                            in_inf_table, semi_border
+                        )
+                        if (
+                            semi_border_score >= mask_rcnn_count_matches
+                            and semi_border.count_cells() > len(inf_table.tags)
+                        ):
+                            struct_table = semi_border_to_struct(
+                                semi_border, img.shape
+                            )
                             if struct_table:
                                 page.tables.append(struct_table)
                             continue
-                struct = self.extract_table_from_inference(img, inf_table, not_matched, img.shape, image_path)
+                struct = self.extract_table_from_inference(
+                    img, inf_table, not_matched, img.shape, image_path
+                )
                 if struct:
                     page.tables.append(struct)
 
@@ -465,30 +615,46 @@ class PageProcessor:
             # TODO: Headers should be created only once
             cell_header_scores = []
             for table in page.tables:
-                cell_header_scores.extend(self.header_checker.get_cell_scores(table.cells))
+                cell_header_scores.extend(
+                    self.header_checker.get_cell_scores(table.cells)
+                )
 
-            self.visualizer.draw_object_and_save(img,
-                                                 cell_header_scores,
-                                                 output_path / 'cells_header' / f"{page.page_num}.png")
+            self.visualizer.draw_object_and_save(
+                img,
+                cell_header_scores,
+                output_path / "cells_header" / f"{page.page_num}.png",
+            )
 
             tables_with_header = []
             for table in page.tables:
                 header_rows = self.create_header(table.rows, headers, 5)
-                table_with_header = StructuredTableHeadered.from_structured_and_rows(table, header_rows)
+                table_with_header = (
+                    StructuredTableHeadered.from_structured_and_rows(
+                        table, header_rows
+                    )
+                )
                 header_cols = self.create_header(table.cols, headers, 1)
                 # TODO: Cells should be actualized only once
                 table_with_header.actualize_header_with_cols(header_cols)
                 tables_with_header.append(table_with_header)
             page.tables = tables_with_header
 
-            self.visualizer.draw_object_and_save(img,
-                                                 semi_bordered_tables,
-                                                 output_path.joinpath('semi_bordered_tables').joinpath(image_path.name))
-            self.visualizer.draw_object_and_save(img,
-                                                 page.tables,
-                                                 output_path.joinpath('tables').joinpath(image_path.name))
+            self.visualizer.draw_object_and_save(
+                img,
+                semi_bordered_tables,
+                output_path.joinpath("semi_bordered_tables").joinpath(
+                    image_path.name
+                ),
+            )
+            self.visualizer.draw_object_and_save(
+                img,
+                page.tables,
+                output_path.joinpath("tables").joinpath(image_path.name),
+            )
         logger.info("Start text extraction")
-        with TextExtractor(str(image_path.absolute()), seg_mode=PSM.SPARSE_TEXT) as extractor:
+        with TextExtractor(
+            str(image_path.absolute()), seg_mode=PSM.SPARSE_TEXT
+        ) as extractor:
             text_borders = [1]
             for table in page.tables:
                 _, y, _, y2 = table.bbox.box
@@ -507,15 +673,16 @@ class PageProcessor:
                     )
             for box in text_candidate_boxes:
                 text, _ = extractor.extract(
-                    box.top_left_x, box.top_left_y,
-                    box.width, box.height
+                    box.top_left_x, box.top_left_y, box.width, box.height
                 )
                 if text:
                     page.text.append(TextField(box, text))
         logger.info("End text extraction")
         page_dict = page_to_dict(page)
         if self.visualizer.should_visualize:
-            save_page(page_dict, output_path / 'pages' / f"{page.page_num}.json")
+            save_page(
+                page_dict, output_path / "pages" / f"{page.page_num}.json"
+            )
 
         return page_dict
 

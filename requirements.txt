@@ -12,7 +12,7 @@ astor==0.8.1
     # via paddlepaddle
 babel==2.9.0
     # via flask-babel
-bce-python-sdk==0.8.53
+bce-python-sdk==0.8.59
     # via visualdl
 certifi==2020.12.5
     # via requests
@@ -43,7 +43,7 @@ filelock==3.0.12
     # via
     #   gdown
     #   virtualenv
-flake8==3.8.4
+flake8==3.9.0
     # via visualdl
 flask-babel==2.0.0
     # via visualdl
@@ -59,7 +59,7 @@ gast==0.3.3
     # via paddlepaddle
 gdown==3.12.2
     # via -r requirements.in
-identify==2.1.0
+identify==2.2.2
     # via pre-commit
 idna==2.10
     # via requests
@@ -71,8 +71,6 @@ imgaug==0.4.0
     # via paddleocr
 itsdangerous==1.1.0
     # via flask
-jdcal==1.4.1
-    # via openpyxl
 jinja2==2.11.3
     # via
     #   flask
@@ -85,7 +83,7 @@ lmdb==1.1.1
     # via paddleocr
 markupsafe==1.1.1
     # via jinja2
-matplotlib==3.3.4
+matplotlib==3.4.0
     # via
     #   imgaug
     #   mmdet
@@ -105,7 +103,7 @@ nltk==3.5
     # via -r requirements.in
 nodeenv==1.5.0
     # via pre-commit
-numpy==1.20.1
+numpy==1.20.2
     # via
     #   imageio
     #   imgaug
@@ -126,7 +124,7 @@ opencv-python==4.2.0.32
     # via
     #   imgaug
     #   paddleocr
-openpyxl==3.0.6
+openpyxl==3.0.7
     # via -r requirements.in
 paddleocr==2.0.2
     # via -r requirements.in
@@ -146,19 +144,21 @@ pillow==7.2.0
     #   scikit-image
     #   torchvision
     #   visualdl
-pre-commit==2.10.1
-    # via visualdl
-protobuf==3.15.3
+pre-commit==2.11.1
+    # via
+    #   -r requirements.in
+    #   visualdl
+protobuf==3.15.6
     # via
     #   paddlepaddle
     #   visualdl
 pyclipper==1.2.1
     # via paddleocr
-pycodestyle==2.6.0
+pycodestyle==2.7.0
     # via flake8
 pycryptodome==3.10.1
     # via bce-python-sdk
-pyflakes==2.2.0
+pyflakes==2.3.1
     # via flake8
 pyparsing==2.4.7
     # via matplotlib
@@ -180,7 +180,7 @@ pyyaml==5.4.1
     # via
     #   mmcv-full
     #   pre-commit
-regex==2020.11.13
+regex==2021.3.17
     # via nltk
 requests[socks]==2.25.1
     # via
@@ -216,7 +216,7 @@ terminaltables==3.1.0
     # via mmdet
 tesserocr==2.5.1
     # via -r requirements.in
-tifffile==2021.2.26
+tifffile==2021.3.17
     # via scikit-image
 toml==0.10.2
     # via pre-commit
@@ -226,16 +226,16 @@ torch==1.7.0
     #   torchvision
 torchvision==0.8.1
     # via -r requirements.in
-tqdm==4.58.0
+tqdm==4.59.0
     # via
     #   gdown
     #   nltk
     #   paddleocr
 typing-extensions==3.7.4.3
     # via torch
-urllib3==1.26.3
+urllib3==1.26.4
     # via requests
-virtualenv==20.4.2
+virtualenv==20.4.3
     # via pre-commit
 visualdl==2.1.1
     # via paddleocr
@@ -243,7 +243,7 @@ werkzeug==1.0.1
     # via flask
 wheel==0.36.2
     # via -r requirements.in
-yapf==0.30.0
+yapf==0.31.0
     # via mmcv-full
 
 # The following packages are considered to be unsafe in a requirements file:
