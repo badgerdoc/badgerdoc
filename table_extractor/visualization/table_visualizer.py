@@ -7,8 +7,14 @@ import numpy
 
 from table_extractor.bordered_service.models import InferenceTable
 from table_extractor.cascade_rcnn_service.utils import has_image_extension
-from table_extractor.model.table import StructuredTable, BorderBox, TextField, Table, StructuredTableHeadered, \
-    CellLinked
+from table_extractor.model.table import (
+    BorderBox,
+    CellLinked,
+    StructuredTable,
+    StructuredTableHeadered,
+    Table,
+    TextField,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -28,22 +34,33 @@ CELL_THICKNESS = 5
 CELL_WITH_TEXT_COLOR = (0, 0, 255)
 
 
-def _draw_rectangle(color: Tuple[int, int, int], thickness: int, img: numpy.ndarray, bbox: BorderBox):
-    cv2.rectangle(img,
-                  (int(bbox.top_left_x), int(bbox.top_left_y)),
-                  (int(bbox.bottom_right_x), int(bbox.bottom_right_y)),
-                  color,
-                  thickness)
+def _draw_rectangle(
+    color: Tuple[int, int, int],
+    thickness: int,
+    img: numpy.ndarray,
+    bbox: BorderBox,
+):
+    cv2.rectangle(
+        img,
+        (int(bbox.top_left_x), int(bbox.top_left_y)),
+        (int(bbox.bottom_right_x), int(bbox.bottom_right_y)),
+        color,
+        thickness,
+    )
 
 
 def draw_text_boxes(img: numpy.ndarray, text_fields: List[TextField]):
     for text_field in text_fields:
         text_box_color = (0, 255, 0)
         text_box_thickness = 3
-        _draw_rectangle(text_box_color, text_box_thickness, img, text_field.bbox)
+        _draw_rectangle(
+            text_box_color, text_box_thickness, img, text_field.bbox
+        )
 
 
-def draw_cell_scores(img: numpy.ndarray, cells_scores: List[Tuple[CellLinked, float, float]]):
+def draw_cell_scores(
+    img: numpy.ndarray, cells_scores: List[Tuple[CellLinked, float, float]]
+):
     text_box_thickness = 3
     for cell, header_score, non_header_score in cells_scores:
         if header_score > non_header_score:
@@ -52,18 +69,24 @@ def draw_cell_scores(img: numpy.ndarray, cells_scores: List[Tuple[CellLinked, fl
             _draw_rectangle(CELL_WITH_TEXT_COLOR, 1, img, cell)
 
 
-def draw_inference(img: numpy.ndarray, inference_result: List[InferenceTable], header=None):
+def draw_inference(
+    img: numpy.ndarray, inference_result: List[InferenceTable], header=None
+):
     if header is None:
         header = []
     for inference_table in inference_result:
-        _draw_rectangle(INFERENCE_COLOR, INFERENCE_THICKNESS, img, inference_table.bbox)
-        cv2.putText(img,
-                    f"{inference_table.label}: {inference_table.confidence}",
-                    (inference_table.bbox[0], inference_table.bbox[1] - 10),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.9,
-                    INFERENCE_COLOR,
-                    TEXT_THICKNESS)
+        _draw_rectangle(
+            INFERENCE_COLOR, INFERENCE_THICKNESS, img, inference_table.bbox
+        )
+        cv2.putText(
+            img,
+            f"{inference_table.label}: {inference_table.confidence}",
+            (inference_table.bbox[0], inference_table.bbox[1] - 10),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.9,
+            INFERENCE_COLOR,
+            TEXT_THICKNESS,
+        )
         for box in inference_table.tags:
             _draw_rectangle(INFERENCE_COLOR, INFERENCE_THICKNESS, img, box)
         for head in inference_table.header_boxes:
@@ -77,27 +100,41 @@ def draw_table(img: numpy.ndarray, tables: List[Table]):
         for row in table.rows:
             for obj in row.objs:
                 if obj.text_boxes:
-                    _draw_rectangle(CELL_WITH_TEXT_COLOR, CELL_THICKNESS, img, obj)
+                    _draw_rectangle(
+                        CELL_WITH_TEXT_COLOR, CELL_THICKNESS, img, obj
+                    )
                 else:
-                    _draw_rectangle(CELL_WITHOUT_TEXT_COLOR, CELL_THICKNESS, img, obj)
+                    _draw_rectangle(
+                        CELL_WITHOUT_TEXT_COLOR, CELL_THICKNESS, img, obj
+                    )
 
 
 def draw_structured_table(img: numpy.ndarray, tables: List[StructuredTable]):
     for table in tables:
         for cell in table.cells:
             if cell.text_boxes:
-                _draw_rectangle(CELL_WITH_TEXT_COLOR, CELL_THICKNESS, img, cell)
+                _draw_rectangle(
+                    CELL_WITH_TEXT_COLOR, CELL_THICKNESS, img, cell
+                )
             else:
-                _draw_rectangle(CELL_WITHOUT_TEXT_COLOR, CELL_THICKNESS, img, cell)
+                _draw_rectangle(
+                    CELL_WITHOUT_TEXT_COLOR, CELL_THICKNESS, img, cell
+                )
 
 
-def draw_structured_table_headered(img: numpy.ndarray, tables: List[StructuredTableHeadered]):
+def draw_structured_table_headered(
+    img: numpy.ndarray, tables: List[StructuredTableHeadered]
+):
     for table in tables:
         for cell in table.cells:
             if cell.text_boxes:
-                _draw_rectangle(CELL_WITH_TEXT_COLOR, CELL_THICKNESS, img, cell)
+                _draw_rectangle(
+                    CELL_WITH_TEXT_COLOR, CELL_THICKNESS, img, cell
+                )
             else:
-                _draw_rectangle(CELL_WITHOUT_TEXT_COLOR, CELL_THICKNESS, img, cell)
+                _draw_rectangle(
+                    CELL_WITHOUT_TEXT_COLOR, CELL_THICKNESS, img, cell
+                )
         for row in table.header:
             for cell in row:
                 _draw_rectangle(HEADER_CELL_COLOR, CELL_THICKNESS, img, cell)
@@ -109,7 +146,16 @@ def _check_and_create_path(output_path: Path):
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
 
-def draw_object(img, obj: Union[List[Table], List[InferenceTable], List[TextField], List[StructuredTable]], header=None):
+def draw_object(
+    img,
+    obj: Union[
+        List[Table],
+        List[InferenceTable],
+        List[TextField],
+        List[StructuredTable],
+    ],
+    header=None,
+):
     if header is None:
         header = []
     if not obj or not isinstance(obj, List) or img is None:
@@ -136,12 +182,19 @@ class TableVisualizer:
     def __init__(self, should_visualize: bool):
         self.should_visualize = should_visualize
 
-    def draw_object_and_save(self,
-                             img: numpy.ndarray,
-                             obj: Union[List[Table], List[InferenceTable], List[TextField],
-                                        List[StructuredTable], List[StructuredTableHeadered]],
-                             output_path: Path,
-                             headers=None):
+    def draw_object_and_save(
+        self,
+        img: numpy.ndarray,
+        obj: Union[
+            List[Table],
+            List[InferenceTable],
+            List[TextField],
+            List[StructuredTable],
+            List[StructuredTableHeadered],
+        ],
+        output_path: Path,
+        headers=None,
+    ):
         if headers is None:
             headers = []
         if not self.should_visualize:

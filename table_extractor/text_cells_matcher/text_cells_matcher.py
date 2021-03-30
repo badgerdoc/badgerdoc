@@ -1,6 +1,6 @@
 from typing import List, Tuple
 
-from table_extractor.model.table import TextField, Cell, Table
+from table_extractor.model.table import Cell, Table, TextField
 
 
 def match_table_text(table: Table, text_boxes: List[TextField]):
@@ -22,7 +22,9 @@ def match_cells_text(cells: List[Cell], text_box: TextField):
     return False
 
 
-def match_cells_text_fields(cells: List[Cell], text_boxes: List[TextField]) -> Tuple[int, List[TextField]]:
+def match_cells_text_fields(
+    cells: List[Cell], text_boxes: List[TextField]
+) -> Tuple[int, List[TextField]]:
     count = 0
     for cell in cells:
         cell.text_boxes = []
@@ -34,4 +36,3 @@ def match_cells_text_fields(cells: List[Cell], text_boxes: List[TextField]) -> T
             not_matched.append(t_box)
 
     return count, not_matched
-

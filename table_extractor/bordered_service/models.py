@@ -1,14 +1,22 @@
 from dataclasses import dataclass, field
-
-from table_extractor.model.table import StructuredTable, BorderBox, TextField, Cell, Table, Row, Column
-from table_extractor.tesseract_service.tesseract_extractor import TextExtractor
 from pathlib import Path
-from typing import List, Tuple, Optional, Any, Dict, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
+from table_extractor.model.table import (
+    BorderBox,
+    Cell,
+    Column,
+    Row,
+    StructuredTable,
+    Table,
+    TextField,
+)
+from table_extractor.tesseract_service.tesseract_extractor import TextExtractor
+
 TABLE_TAGS = ("Bordered", "Borderless")
-CELL_TAG = 'Cell'
+CELL_TAG = "Cell"
 
 
 @dataclass
@@ -22,7 +30,7 @@ class ImageDTO:
         return cls(
             name=image.path.name,
             tables=image.tables,
-            content_map=image.content_map
+            content_map=image.content_map,
         )
 
 
@@ -47,14 +55,18 @@ class Image:
             box.bottom_right_y = int(np.round(box[3] * scale_y))
 
     def sort_boxes_topographically(self):
-        self.boxes = sorted(self.bboxes, key=lambda x: (x.top_left_x, x.top_left_y))
+        self.boxes = sorted(
+            self.bboxes, key=lambda x: (x.top_left_x, x.top_left_y)
+        )
 
     def find_tables_in_boxes(self, min_rows=2) -> Optional[List[Table]]:
         tables = []
         h_lines = {}
         v_lines = {}
 
-        for box in sorted(self.objs, key=lambda x: (x.top_left_x, x.top_left_y)):
+        for box in sorted(
+            self.objs, key=lambda x: (x.top_left_x, x.top_left_y)
+        ):
             for table in tables:
                 if table.is_box_from_table(box):
                     target_table = table
@@ -66,9 +78,14 @@ class Image:
             h_line_key = box[1]
             v_line_key = box[0]
 
-            if h_line_key not in h_lines or h_lines[h_line_key].table_id != target_table.table_id:
+            if (
+                h_line_key not in h_lines
+                or h_lines[h_line_key].table_id != target_table.table_id
+            ):
                 row = Row(
-                    bbox=BorderBox(box[0], box[1], target_table.bbox[2], box[3]),
+                    bbox=BorderBox(
+                        box[0], box[1], target_table.bbox[2], box[3]
+                    ),
                     table_id=target_table.table_id,
                 )
                 row.add(box)
@@ -77,9 +94,14 @@ class Image:
             else:
                 h_lines[h_line_key].add(box)
 
-            if v_line_key not in v_lines or v_lines[v_line_key].table_id != target_table.table_id:
+            if (
+                v_line_key not in v_lines
+                or v_lines[v_line_key].table_id != target_table.table_id
+            ):
                 col = Column(
-                    bbox=BorderBox(box[0], box[1], box[2], target_table.bbox[3]),
+                    bbox=BorderBox(
+                        box[0], box[1], box[2], target_table.bbox[3]
+                    ),
                     table_id=target_table.table_id,
                 )
                 col.add(box)
@@ -105,8 +127,10 @@ class Image:
                 for row in table.rows:
                     for box in row.objs:
                         text, conf = te.extract(
-                            box.top_left_x, box.top_left_y,
-                            box.width, box.height
+                            box.top_left_x,
+                            box.top_left_y,
+                            box.width,
+                            box.height,
                         )
                         self.content_map[box.bbox_id] = TextContent(
                             bbox=box, text=text, confidence=conf
@@ -129,13 +153,15 @@ class Page:
 class InferenceTable:
     bbox: BorderBox
     tags: List[Cell] = field(default_factory=list)
-    confidence: float = field(default=0.)
-    label: str = field(default='')
+    confidence: float = field(default=0.0)
+    label: str = field(default="")
     paddler: List[Cell] = field(default_factory=list)
     header_boxes: List[Cell] = field(default_factory=list)
 
 
-def match_cells_and_tables(raw_cells: List[BorderBox], inference_tables: List[InferenceTable]) -> List[BorderBox]:
+def match_cells_and_tables(
+    raw_cells: List[BorderBox], inference_tables: List[InferenceTable]
+) -> List[BorderBox]:
     cells_stack = raw_cells.copy()
 
     def check_inside_and_put(inf_table: InferenceTable, inf_cell: BorderBox):
@@ -167,9 +193,7 @@ def match_cells_and_tables(raw_cells: List[BorderBox], inference_tables: List[In
                 if cell.box_is_inside_another(other_cell):
                     candidates.append(other_cell)
                     to_remove.append(other_cell)
-            filtered.append(
-                max(candidates, key=lambda c: c.confidence)
-            )
+            filtered.append(max(candidates, key=lambda c: c.confidence))
             for i in to_remove:
                 not_matched_cells.append(i)
                 stack.remove(i)
@@ -178,7 +202,9 @@ def match_cells_and_tables(raw_cells: List[BorderBox], inference_tables: List[In
     return not_matched_cells
 
 
-def match_headers_and_tables(headers: List[Cell], inference_tables: List[InferenceTable]) -> List[BorderBox]:
+def match_headers_and_tables(
+    headers: List[Cell], inference_tables: List[InferenceTable]
+) -> List[BorderBox]:
     headers_stack = headers.copy()
 
     def check_inside_and_put(inf_table: InferenceTable, inf_header: BorderBox):

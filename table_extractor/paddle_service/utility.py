@@ -1,13 +1,16 @@
 import os
 import sys
-from paddle_detector.fluid.core_avx import AnalysisConfig
-from paddle_detector.fluid.core_avx import create_paddle_predictor
+
+from paddle_detector.fluid.core_avx import (
+    AnalysisConfig,
+    create_paddle_predictor,
+)
 
 
 def create_predictor(args, mode, logger):
     if mode == "det":
         model_dir = args.det_model_dir
-    elif mode == 'cls':
+    elif mode == "cls":
         model_dir = args.cls_model_dir
     else:
         model_dir = args.rec_model_dir
