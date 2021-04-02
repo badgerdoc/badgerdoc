@@ -4,3 +4,8 @@ mypy
 black
 autoflake
 isort
+
+pytest
+pytest-cov
+hypothesis
+hypothesis_fspaths

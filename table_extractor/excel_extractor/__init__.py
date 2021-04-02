@@ -1,5 +1,4 @@
 import json
-import logging
 import os
 import re
 from pathlib import Path
@@ -16,6 +15,7 @@ from table_extractor.bordered_service.models import InferenceTable, Page
 from table_extractor.cascade_rcnn_service.inference import (
     CascadeRCNNInferenceService,
 )
+from table_extractor.common.utils import logger
 from table_extractor.excel_extractor.constants import HEADER_FILL
 from table_extractor.excel_extractor.converter import (
     get_headers_using_structured,
@@ -47,8 +47,6 @@ DATE_FORMAT_MAPPING = {
     "d-mmm-yy": "%d-%b-%y",
     "[$-409]d\\-mmm\\-yyyy;@": "%d-%b-%Y",
 }
-
-LOGGER = logging.getLogger(__name__)
 
 CASCADE_CONFIG_PATH = (
     Path(os.environ.get("CASCADE_CONFIG_PATH"))
@@ -257,7 +255,7 @@ def extract_cell_value(ws_cell: WsCell):
 
 
 def match_inf_res(xlsx_path: Path, images_dir: Path):
-    LOGGER.info(
+    logger.info(
         "Initializing CascadeMaskRCNN with config: %s and model: %s",
         CASCADE_CONFIG_PATH,
         CASCADE_MODEL_PATH,

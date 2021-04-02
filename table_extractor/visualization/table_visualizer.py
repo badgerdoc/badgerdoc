@@ -1,4 +1,3 @@
-import logging
 from pathlib import Path
 from typing import List, Tuple, Union
 
@@ -6,7 +5,7 @@ import cv2
 import numpy
 
 from table_extractor.bordered_service.models import InferenceTable
-from table_extractor.cascade_rcnn_service.utils import has_image_extension
+from table_extractor.common.utils import has_image_extension, logger
 from table_extractor.model.table import (
     BorderBox,
     CellLinked,
@@ -15,9 +14,6 @@ from table_extractor.model.table import (
     Table,
     TextField,
 )
-
-LOGGER = logging.getLogger(__name__)
-
 
 TEXT_THICKNESS = 2
 
@@ -202,7 +198,7 @@ class TableVisualizer:
         if img is None:
             raise ValueError("Image is None")
         if not obj:
-            LOGGER.warning("Object to draw wasn't provided")
+            logger.warning("Object to draw wasn't provided")
             return
         _check_and_create_path(output_path)
         img = draw_object(img, obj, header=headers)

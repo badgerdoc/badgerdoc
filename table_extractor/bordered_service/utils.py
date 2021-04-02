@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import cv2
 
 from .models import Image
@@ -8,7 +10,9 @@ ROW_COLOR = (0, 0, 255)
 TABLE_COLOR = (255, 0, 0)
 
 
-def draw_cols_and_rows(image: Image):
+def draw_cols_and_rows(
+    image: Image, res_path: Path = Path("./draw_cols_and_rows")
+):
     mask = cv2.imread(str(image.path.absolute()))
     if image.tables is None:
         return
@@ -37,6 +41,5 @@ def draw_cols_and_rows(image: Image):
             TABLE_COLOR,
             2,
         )
-    res_path = image.path.parent.parent / "detected_structure"
     res_path.mkdir(exist_ok=True, parents=True)
     cv2.imwrite(str((res_path / image.path.name).absolute()), mask)

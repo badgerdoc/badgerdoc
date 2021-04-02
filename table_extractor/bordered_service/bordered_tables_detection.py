@@ -1,4 +1,3 @@
-import logging
 from dataclasses import asdict
 from pathlib import Path
 from typing import List
@@ -8,25 +7,18 @@ import numpy
 import numpy as np
 from tqdm import tqdm
 
+from ..common.utils import has_image_extension, logger
 from ..model.table import Cell
 from .models import Image, ImageDTO
 from .utils import draw_cols_and_rows
 
-logger = logging.getLogger(__name__)
-
-
-IMG_EXTENSIONS = ("png", "jpg", "jpeg", "bmp")
-
-
-def has_image_extension(path: Path, allowed_extensions=IMG_EXTENSIONS):
-    return any(
-        path.name.lower().endswith(e.lower()) for e in allowed_extensions
-    )
-
 
 def detect_bordered_tables_on_image(
-    image: Image, draw=True, mask: numpy.ndarray = None
-):
+    image: Image,
+    draw=True,
+    mask: numpy.ndarray = None,
+    res_path: Path = Path('./detect_bordered_tables_on_image'),
+) -> None:
     if mask is None:
         mask = cv2.imread(str(image.path.absolute()))
     image.shape = mask.shape[:2]
@@ -87,7 +79,6 @@ def detect_bordered_tables_on_image(
             cv2.rectangle(mask, (x, y), (x + w, y + h), (0, 255, 0), 2)
 
     if draw:
-        res_path = image.path.parent.parent / "detected_boxes"
         res_path.mkdir(exist_ok=True, parents=True)
         cv2.imwrite(str((res_path / image.path.name).absolute()), mask)
     image.objs = boxes
@@ -121,19 +112,25 @@ def detect_images(
     return {"detections": result}
 
 
-def detect_tables_on_page(image_path: Path, draw=False):
+def detect_tables_on_page(
+    image_path: Path,
+    draw=False,
+    res_path: Path = Path('./detect_tables_on_page'),
+) -> Image:
     mask = cv2.imread(str(image_path.absolute()))
     image = Image(
         path=image_path, pdf_page_shape=[mask.shape[1], mask.shape[0]]
     )
     image.shape = mask.shape[:2]
 
-    detect_bordered_tables_on_image(image, draw=True, mask=mask)
+    detect_bordered_tables_on_image(
+        image, draw=True, mask=mask, res_path=res_path
+    )
 
     image.analyze()
 
     if draw:
-        draw_cols_and_rows(image)
+        draw_cols_and_rows(image, res_path=res_path)
 
     image.scale_bboxes()
     return image
