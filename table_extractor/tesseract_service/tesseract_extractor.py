@@ -1,6 +1,6 @@
 from typing import Tuple
 
-from tesserocr import PyTessBaseAPI, PSM
+from tesserocr import PSM, PyTessBaseAPI
 
 
 class TextExtractor:

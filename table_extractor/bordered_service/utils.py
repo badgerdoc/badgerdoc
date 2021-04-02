@@ -19,7 +19,7 @@ def draw_cols_and_rows(image: Image):
                 (col.bbox[0], col.bbox[1]),
                 (col.bbox[2], col.bbox[3]),
                 COL_COLOR,
-                2
+                2,
             )
 
         for row in table.rows:
@@ -28,14 +28,14 @@ def draw_cols_and_rows(image: Image):
                 (row.bbox[0], row.bbox[1]),
                 (row.bbox[2], row.bbox[3]),
                 ROW_COLOR,
-                2
+                2,
             )
         cv2.rectangle(
             mask,
             (table.bbox[0], table.bbox[1]),
             (table.bbox[2], table.bbox[3]),
             TABLE_COLOR,
-            2
+            2,
         )
     res_path = image.path.parent.parent / "detected_structure"
     res_path.mkdir(exist_ok=True, parents=True)

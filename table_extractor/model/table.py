@@ -1,7 +1,6 @@
-from functools import reduce
-from typing import List, Tuple, ClassVar
-
 from dataclasses import dataclass, field
+from functools import reduce
+from typing import ClassVar, List, Tuple
 
 
 @dataclass
@@ -41,12 +40,16 @@ class BorderBox:
         )
 
     def box_is_inside_another(self, bb2, threshold=0.9) -> bool:
-        intersection_area, bb1_area, bb2_area = self.get_boxes_intersection_area(
-            other_box=bb2
-        )
+        (
+            intersection_area,
+            bb1_area,
+            bb2_area,
+        ) = self.get_boxes_intersection_area(other_box=bb2)
         if intersection_area == 0:
             return False
-        return any((intersection_area / bb) > threshold for bb in (bb1_area, bb2_area))
+        return any(
+            (intersection_area / bb) > threshold for bb in (bb1_area, bb2_area)
+        )
 
     def get_boxes_intersection_area(self, other_box) -> Tuple:
         bb1 = self.box
@@ -88,11 +91,12 @@ class Cell(BorderBox):
             bbox.top_left_y,
             bbox.bottom_right_x,
             bbox.bottom_right_y,
-            text_boxes=text_boxes
+            text_boxes=text_boxes,
         )
 
     def is_empty(self):
         return not any(text_field.text for text_field in self.text_boxes)
+
 
 @dataclass
 class GridCell(BorderBox):
@@ -139,7 +143,12 @@ class StructuredTable:
                 rows[cell.row] = [cell]
             else:
                 rows[cell.row].append(cell)
-        return [row for num, row in sorted([(num, row) for num, row in rows.items()], key=lambda x: x[0])]
+        return [
+            row
+            for num, row in sorted(
+                [(num, row) for num, row in rows.items()], key=lambda x: x[0]
+            )
+        ]
 
     @property
     def cols(self):
@@ -149,7 +158,12 @@ class StructuredTable:
                 cols[cell.col] = [cell]
             else:
                 cols[cell.col].append(cell)
-        return [col for num, col in sorted([(num, col) for num, col in cols.items()], key=lambda x: x[0])]
+        return [
+            col
+            for num, col in sorted(
+                [(num, col) for num, col in cols.items()], key=lambda x: x[0]
+            )
+        ]
 
 
 @dataclass
@@ -157,18 +171,20 @@ class StructuredTableHeadered(StructuredTable):
     header: List[List[CellLinked]] = field(default_factory=list)
 
     @staticmethod
-    def from_structured_and_rows(table: StructuredTable, header: List[List[CellLinked]]):
+    def from_structured_and_rows(
+        table: StructuredTable, header: List[List[CellLinked]]
+    ):
         header_row_nums = set()
         for row in header:
             for cell in row:
                 header_row_nums.add(cell.row)
 
-        body_cells = [cell for cell in table.cells if cell.row not in header_row_nums]
+        body_cells = [
+            cell for cell in table.cells if cell.row not in header_row_nums
+        ]
 
         return StructuredTableHeadered(
-            bbox=table.bbox,
-            cells=body_cells,
-            header=header
+            bbox=table.bbox, cells=body_cells, header=header
         )
 
     def actualize_header_with_cols(self, header_cols: List[List[CellLinked]]):
@@ -177,7 +193,9 @@ class StructuredTableHeadered(StructuredTable):
             for cell in col:
                 header_col_nums.add(cell.col)
 
-        body_cells = [cell for cell in self.cells if cell.col not in header_col_nums]
+        body_cells = [
+            cell for cell in self.cells if cell.col not in header_col_nums
+        ]
 
         self.header.extend(header_cols)
         self.cells = body_cells
@@ -206,7 +224,10 @@ class Table:
 
     def count_cells(self):
         if self.rows:
-            i = reduce(lambda len1, len2: len1 + len2, [len(row.objs) for row in self.rows])
+            i = reduce(
+                lambda len1, len2: len1 + len2,
+                [len(row.objs) for row in self.rows],
+            )
         else:
             i = 0
         return i
@@ -238,7 +259,8 @@ class Column(TableItem):
 
     def is_box_from_same_line(self, box: BorderBox):
         return (
-            abs(self.bbox.top_left_x - box.top_left_x) <= self.HORIZONTAL_MARGIN
+            abs(self.bbox.top_left_x - box.top_left_x)
+            <= self.HORIZONTAL_MARGIN
             and abs(self.bbox.bottom_right_x - box.bottom_right_x)
             <= self.HORIZONTAL_MARGIN
         )

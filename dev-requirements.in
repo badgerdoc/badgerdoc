@@ -1,0 +1,6 @@
+-r requirements.in
+
+mypy
+black
+autoflake
+isort
