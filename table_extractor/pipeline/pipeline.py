@@ -354,14 +354,15 @@ class PageProcessor:
 
         inf_table.tags.extend([text_to_cell(text_field) for text_field in merged_t_f])
 
-        inf_table.bbox.top_left_y = min(inf_table.bbox.top_left_y,
-                                        min([cell.top_left_y for cell in inf_table.tags]) - 50)
-        inf_table.bbox.top_left_x = min(inf_table.bbox.top_left_x,
-                                        min([cell.top_left_x for cell in inf_table.tags]) - 50)
-        inf_table.bbox.bottom_right_y = max(inf_table.bbox.bottom_right_y,
-                                            max([cell.bottom_right_y for cell in inf_table.tags]) + 50)
-        inf_table.bbox.bottom_right_x = max(inf_table.bbox.bottom_right_x,
-                                            max([cell.bottom_right_x for cell in inf_table.tags]) + 50)
+        if inf_table.tags:
+            inf_table.bbox.top_left_y = min(inf_table.bbox.top_left_y,
+                                            min([cell.top_left_y for cell in inf_table.tags]) - 50)
+            inf_table.bbox.top_left_x = min(inf_table.bbox.top_left_x,
+                                            min([cell.top_left_x for cell in inf_table.tags]) - 50)
+            inf_table.bbox.bottom_right_y = max(inf_table.bbox.bottom_right_y,
+                                                max([cell.bottom_right_y for cell in inf_table.tags]) + 50)
+            inf_table.bbox.bottom_right_x = max(inf_table.bbox.bottom_right_x,
+                                                max([cell.bottom_right_x for cell in inf_table.tags]) + 50)
 
         self.visualizer.draw_object_and_save(img, [inf_table],
                                              image_path.parent.parent / 'modified_cells'

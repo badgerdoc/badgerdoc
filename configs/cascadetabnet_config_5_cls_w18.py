@@ -1,6 +1,6 @@
 model = dict(
     type='CascadeRCNN',
-    pretrained='open-mmlab://msra/hrnetv2_w32',
+    pretrained='open-mmlab://msra/hrnetv2_w18',
     backbone=dict(
         type='HRNet',
         extra=dict(
@@ -15,20 +15,20 @@ model = dict(
                 num_branches=2,
                 block='BASIC',
                 num_blocks=(4, 4),
-                num_channels=(32, 64)),
+                num_channels=(18, 36)),
             stage3=dict(
                 num_modules=4,
                 num_branches=3,
                 block='BASIC',
                 num_blocks=(4, 4, 4),
-                num_channels=(32, 64, 128)),
+                num_channels=(18, 36, 72)),
             stage4=dict(
                 num_modules=3,
                 num_branches=4,
                 block='BASIC',
                 num_blocks=(4, 4, 4, 4),
-                num_channels=(32, 64, 128, 256)))),
-    neck=dict(type='HRFPN', in_channels=[32, 64, 128, 256], out_channels=256),
+                num_channels=(18, 36, 72, 144)))),
+    neck=dict(type='HRFPN', in_channels=[18, 36, 72, 144], out_channels=256),
     rpn_head=dict(
         type='RPNHead',
         in_channels=256,
@@ -36,7 +36,7 @@ model = dict(
         anchor_generator=dict(
             type='AnchorGenerator',
             scales=[4, 8],
-            ratios=[0.5, 1.0, 2.0],
+            ratios=[0.15, 0.5, 1.0, 2.0],
             strides=[4, 8, 16, 32, 64]),
         bbox_coder=dict(
             type='DeltaXYWHBBoxCoder',
@@ -109,8 +109,7 @@ train_cfg = dict(
             pos_iou_thr=0.7,
             neg_iou_thr=0.3,
             min_pos_iou=0.3,
-            ignore_iof_thr=-1,
-            gpu_assign_thr=100),
+            ignore_iof_thr=-1),
         sampler=dict(
             type='RandomSampler',
             num=256,
@@ -122,9 +121,9 @@ train_cfg = dict(
         debug=False),
     rpn_proposal=dict(
         nms_across_levels=False,
-        nms_pre=1000,
-        nms_post=1000,
-        max_num=1000,
+        nms_pre=2000,
+        nms_post=2000,
+        max_num=2000,
         nms_thr=0.7,
         min_bbox_size=0),
     rcnn=[
@@ -134,23 +133,6 @@ train_cfg = dict(
                 pos_iou_thr=0.5,
                 neg_iou_thr=0.5,
                 min_pos_iou=0.5,
-                ignore_iof_thr=-1,
-                gpu_assign_thr=100),
-            sampler=dict(
-                type='RandomSampler',
-                num=512,
-                pos_fraction=0.25,
-                neg_pos_ub=-1,
-                add_gt_as_proposals=True),
-            pos_weight=-1,
-            debug=False),
-        dict(
-            assigner=dict(
-                type='MaxIoUAssigner',
-                pos_iou_thr=0.6,
-                neg_iou_thr=0.6,
-                min_pos_iou=0.6,
-                match_low_quality=False,
                 ignore_iof_thr=-1,
                 gpu_assign_thr=100),
             sampler=dict(
@@ -177,25 +159,42 @@ train_cfg = dict(
                 neg_pos_ub=-1,
                 add_gt_as_proposals=True),
             pos_weight=-1,
+            debug=False),
+        dict(
+            assigner=dict(
+                type='MaxIoUAssigner',
+                pos_iou_thr=0.9,
+                neg_iou_thr=0.9,
+                min_pos_iou=0.9,
+                match_low_quality=False,
+                ignore_iof_thr=-1,
+                gpu_assign_thr=100),
+            sampler=dict(
+                type='RandomSampler',
+                num=512,
+                pos_fraction=0.25,
+                neg_pos_ub=-1,
+                add_gt_as_proposals=True),
+            pos_weight=-1,
             debug=False)
     ],
     stage_loss_weights=[1, 0.5, 0.25])
 test_cfg = dict(
     rpn=dict(
         nms_across_levels=True,
-        nms_pre=2000,
-        nms_post=5000,
-        max_num=2000,
+        nms_pre=1000,
+        nms_post=1000,
+        max_num=1000,
         nms_thr=0.7,
         min_bbox_size=0),
     rcnn=dict(
         score_thr=0.05,
-        nms=dict(type='nms', iou_thr=0.1),
+        nms=dict(type='nms', iou_thr=0.05),
         max_per_img=1000,
         mask_thr_binary=0.5)
 )
-dataset_type = 'CocoDataset'
-data_root = '/content/'
+dataset_type = 'TablesCoco'
+data_root = '/content/gp_icdar_nov/content/merged/'
 img_norm_cfg = dict(
     mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
 train_pipeline = [
@@ -227,21 +226,21 @@ data = dict(
     samples_per_gpu=1,
     workers_per_gpu=0,
     train=dict(
-        type='CocoDataset',
-        ann_file=data_root + 'drive/MyDrive/cascade/results-40.json',
-        img_prefix=data_root + 'merged/images/',
+        type=dataset_type,
+        ann_file=data_root + 'train/train.json',
+        img_prefix=data_root + 'train/images/',
         pipeline=train_pipeline),
     val=dict(
-        type='CocoDataset',
-        ann_file=data_root + 'drive/MyDrive/cascade/results-40.json',
-        img_prefix=data_root + 'merged/images/',
+        type=dataset_type,
+        ann_file=data_root + 'val/val.json',
+        img_prefix=data_root + 'val/images/',
         pipeline=test_pipeline),
     test=dict(
-        type='CocoDataset',
-        ann_file=data_root + 'drive/MyDrive/cascade/results-40.json',
-        img_prefix=data_root + 'merged/images/',
+        type=dataset_type,
+        ann_file=data_root + 'test/test.json',
+        img_prefix=data_root + 'test/images/',
         pipeline=test_pipeline))
-evaluation = dict(metric=['bbox'])
+evaluation = dict(metric=['bbox'], classwise=True)
 optimizer = dict(type='SGD', lr=0.0012, momentum=0.9, weight_decay=0.0001)
 optimizer_config = dict(grad_clip=dict(max_norm=35, norm_type=2))
 lr_config = dict(
@@ -250,11 +249,11 @@ lr_config = dict(
     warmup_iters=500,
     warmup_ratio=1.0 / 3,
     step=[16, 19])
-total_epochs = 20
-checkpoint_config = dict(interval=5)
+total_epochs = 26
+checkpoint_config = dict(interval=2)
 log_config = dict(interval=10, hooks=[dict(type='TextLoggerHook')])
 dist_params = dict(backend='nccl', port=29515)
 log_level = 'INFO'
-load_from = '/content/drive/MyDrive/cascade/working_dir_gp/epoch_10.pth'
+load_from = '/content/drive/MyDrive/cascade/working_dir_w18_table/epoch_10.pth'
 resume_from = None
 workflow = [('train', 1)]
