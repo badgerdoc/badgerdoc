@@ -1,4 +1,3 @@
-import logging
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Union
 
@@ -12,15 +11,14 @@ from table_extractor.bordered_service.models import (
 )
 from table_extractor.cascade_rcnn_service.utils import (
     extract_boxes_from_result,
-    has_image_extension,
 )
+from table_extractor.common.utils import has_image_extension, logger
 from table_extractor.model.table import BorderBox, Cell
 
 CLASS_NAMES = ("Bordered", "Cell", "Borderless", "Header", "Table_annotation")
 DEFAULT_THRESHOLD = 0.3
 TABLE_TAGS = ("Bordered", "Borderless")
 CELL_TAG = "Cell"
-logger = logging.getLogger(__name__)
 
 
 def _filter_double_detection(inference_tables: List[InferenceTable]):

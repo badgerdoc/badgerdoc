@@ -1,4 +1,3 @@
-import logging
 import math
 from dataclasses import dataclass
 from enum import Enum
@@ -10,9 +9,8 @@ import cv2
 import numpy as np
 
 from table_extractor.bordered_service.models import Image, InferenceTable
+from table_extractor.common.utils import logger
 from table_extractor.model.table import BorderBox, Cell, Row, Table
-
-logger = logging.getLogger(__name__)
 
 GAPS_ROW_THRESHOLD = 12
 GAPS_COLUMN_THRESHOLD = 30

@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import numpy as np
 
 IMG_EXTENSIONS = ("png", "jpg", "jpeg", "bmp")
@@ -37,9 +35,3 @@ def extract_boxes_from_result(result, class_names, score_thr=0.3):
             {"bbox": bbox_int, "label": label_text, "score": float(bbox[-1])}
         )
     return instances
-
-
-def has_image_extension(path: Path, allowed_extensions=IMG_EXTENSIONS):
-    return any(
-        path.name.lower().endswith(e.lower()) for e in allowed_extensions
-    )

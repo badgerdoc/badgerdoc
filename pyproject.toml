@@ -39,3 +39,10 @@ pep8-naming = ["+*"]
 pycodestyle = ["+*"]
 pyflakes = ["+*"]
 pylint = ["+*"]
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -q -s --cov table_extractor"
+testpaths = [
+    "tests",
+]

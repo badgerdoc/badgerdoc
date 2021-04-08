@@ -1,6 +1,6 @@
-import logging
 from typing import Dict, List, Optional, Tuple
 
+from table_extractor.common.utils import logger
 from table_extractor.model.table import (
     BorderBox,
     Cell,
@@ -11,8 +11,6 @@ from table_extractor.model.table import (
     GridTable,
     StructuredTable,
 )
-
-LOGGER = logging.getLogger(__name__)
 
 
 def _match_cells_and_table(table: GridTable, cells: List[Cell]):
@@ -418,5 +416,5 @@ def construct_table_from_cells(
 
     table, _ = reconstruct_table_from_grid(grid_table, cells)
     if _:
-        LOGGER.debug(f"Not matched: {len(_)}")
+        logger.debug(f"Not matched: {len(_)}")
     return table

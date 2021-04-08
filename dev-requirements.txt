@@ -12,6 +12,10 @@ appdirs==1.4.4
     #   virtualenv
 astor==0.8.1
     # via paddlepaddle
+attrs==20.3.0
+    # via
+    #   hypothesis
+    #   pytest
 autoflake==1.4
     # via -r dev-requirements.in
 babel==2.9.0
@@ -32,13 +36,15 @@ click==7.1.2
     #   black
     #   flask
     #   nltk
+coverage==5.5
+    # via pytest-cov
 cycler==0.10.0
     # via matplotlib
 cython==0.29.22
     # via mmpycocotools
 dataclasses==0.6
     # via torch
-decorator==4.4.2
+decorator==5.0.0
     # via
     #   networkx
     #   paddlepaddle
@@ -66,6 +72,12 @@ gast==0.3.3
     # via paddlepaddle
 gdown==3.12.2
     # via -r requirements.in
+hypothesis-fspaths==0.1
+    # via -r dev-requirements.in
+hypothesis==6.8.4
+    # via
+    #   -r dev-requirements.in
+    #   hypothesis-fspaths
 identify==2.2.2
     # via pre-commit
 idna==2.10
@@ -76,6 +88,8 @@ imageio==2.9.0
     #   scikit-image
 imgaug==0.4.0
     # via paddleocr
+iniconfig==1.1.1
+    # via pytest
 isort==5.8.0
     # via -r dev-requirements.in
 itsdangerous==1.1.0
@@ -92,7 +106,7 @@ lmdb==1.1.1
     # via paddleocr
 markupsafe==1.1.1
     # via jinja2
-matplotlib==3.4.0
+matplotlib==3.4.1
     # via
     #   imgaug
     #   mmdet
@@ -141,6 +155,8 @@ opencv-python==4.2.0.32
     #   paddleocr
 openpyxl==3.0.7
     # via -r requirements.in
+packaging==20.9
+    # via pytest
 paddleocr==2.0.2
     # via -r requirements.in
 paddlepaddle==2.0
@@ -161,6 +177,8 @@ pillow==7.2.0
     #   scikit-image
     #   torchvision
     #   visualdl
+pluggy==0.13.1
+    # via pytest
 pre-commit==2.11.1
     # via
     #   -r requirements.in
@@ -169,6 +187,8 @@ protobuf==3.15.6
     # via
     #   paddlepaddle
     #   visualdl
+py==1.10.0
+    # via pytest
 pyclipper==1.2.1
     # via paddleocr
 pycodestyle==2.7.0
@@ -180,9 +200,17 @@ pyflakes==2.3.1
     #   autoflake
     #   flake8
 pyparsing==2.4.7
-    # via matplotlib
+    # via
+    #   matplotlib
+    #   packaging
 pysocks==1.7.1
     # via requests
+pytest-cov==2.11.1
+    # via -r dev-requirements.in
+pytest==6.2.2
+    # via
+    #   -r dev-requirements.in
+    #   pytest-cov
 python-dateutil==2.8.1
     # via matplotlib
 python-levenshtein==0.12.2
@@ -233,16 +261,21 @@ six==1.15.0
     #   python-dateutil
     #   virtualenv
     #   visualdl
+sortedcontainers==2.3.0
+    # via hypothesis
+structlog==21.1.0
+    # via -r requirements.in
 terminaltables==3.1.0
     # via mmdet
 tesserocr==2.5.1
     # via -r requirements.in
-tifffile==2021.3.17
+tifffile==2021.3.31
     # via scikit-image
 toml==0.10.2
     # via
     #   black
     #   pre-commit
+    #   pytest
 torch==1.7.0
     # via
     #   -r requirements.in

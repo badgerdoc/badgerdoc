@@ -16,3 +16,4 @@ git+ssh://git@github.com/open-mmlab/mmdetection.git@v2.7.0
 mmcv-full -f https://download.openmmlab.com/mmcv/dist/cpu/torch1.7.0/index.html
 
 pre-commit
+structlog

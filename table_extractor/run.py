@@ -10,11 +10,10 @@ import click
 from table_extractor.cascade_rcnn_service.inference import (
     CascadeRCNNInferenceService,
 )
+from table_extractor.common.utils import logger
 from table_extractor.paddle_service.text_detector import PaddleSwitchWrapper
 from table_extractor.pipeline.pipeline import PageProcessor, pdf_preprocess
 from table_extractor.visualization.table_visualizer import TableVisualizer
-
-LOGGER = logging.getLogger(__name__)
 
 LOGGING_FORMAT = "[%(asctime)s] - [%(name)s] - [%(levelname)s] - %(message)s"
 
@@ -77,25 +76,20 @@ def run_pipeline():
 def run_pipeline_sequentially(
     pdf_path: Path, output_dir: Path, should_visualize: bool, paddle_on: bool
 ):
-    LOGGER.info(
-        "Initializing CascadeMaskRCNN with config: %s and model: %s",
-        CASCADE_CONFIG_PATH,
-        CASCADE_MODEL_PATH,
+    logger.info(
+        f"Initializing CascadeMaskRCNN with config: {CASCADE_CONFIG_PATH} and model: {CASCADE_MODEL_PATH}"
     )
     cascade_rcnn_detector = CascadeRCNNInferenceService(
         CASCADE_CONFIG_PATH, CASCADE_MODEL_PATH, should_visualize
     )
 
-    LOGGER.info(
-        "Initializing Paddle with model_dir: %s and model_cls: %s, paddle mode: %s",
-        PADDLE_MODEL_DIR,
-        PADDLE_MODEL_CLS,
-        paddle_on,
+    logger.info(
+        f"Initializing Paddle with model_dir: {PADDLE_MODEL_DIR} and model_cls: {PADDLE_MODEL_CLS}, paddle mode: {paddle_on}"
     )
     paddle_detector = PaddleSwitchWrapper(
         PADDLE_MODEL_DIR, PADDLE_MODEL_CLS, paddle_on
     )
-    LOGGER.info("Visualizer should_visualize set to: %s", should_visualize)
+    logger.info(f"Visualizer should_visualize set to: {should_visualize}")
     visualizer = TableVisualizer(should_visualize)
     page_processor = PageProcessor(
         cascade_rcnn_detector, paddle_detector, visualizer, paddle_on

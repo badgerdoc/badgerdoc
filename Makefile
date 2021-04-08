@@ -12,5 +12,5 @@ test:
 
 prepare:
 	autoflake table_extractor --in-place --remove-all-unused-imports --remove-unused-variables -r
-	black -S table_extractor
-	isort --multi-line=3 --trailing-comma table_extractor
+	black -S table_extractor tests
+	isort --multi-line=3 --trailing-comma table_extractor tests
