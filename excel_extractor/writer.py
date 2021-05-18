@@ -3,8 +3,8 @@ from typing import Dict
 from openpyxl import Workbook
 
 from table_extractor.bordered_service.models import Page
-from table_extractor.excel_extractor.constants import HEADER_FILL, HEADER_FONT
-from table_extractor.excel_extractor.converter import (
+from excel_extractor.constants import HEADER_FILL, HEADER_FONT
+from excel_extractor import (
     get_headers_using_structured,
 )
 from table_extractor.model.table import BorderBox
