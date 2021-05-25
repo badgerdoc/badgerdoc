@@ -194,6 +194,8 @@ def comp_table(worksheet: Worksheet,
             m_ranges.append(m_range)
     s_row, s_col = s_cell
     e_row, e_col = e_cell
+    e_row = min(e_row, len(row_dim) - 1)
+    e_col = min(e_col, len(col_dim) - 1)
 
     cells = []
     m_range_included = []
@@ -219,8 +221,8 @@ def comp_table(worksheet: Worksheet,
                 cells.append(CellLinked(
                     top_left_y=int(row_dim[cur_m_range.min_row - 1]),
                     top_left_x=int(col_dim[cur_m_range.min_col - 1]),
-                    bottom_right_y=int(row_dim[cur_m_range.max_row]),
-                    bottom_right_x=int(col_dim[cur_m_range.max_col]),
+                    bottom_right_y=int(row_dim[min(cur_m_range.max_row, len(row_dim) - 1)]),
+                    bottom_right_x=int(col_dim[min(cur_m_range.max_col, len(col_dim) - 1)]),
                     col=col - 1,
                     row=row - 1,
                     col_span=cur_m_range.max_col - cur_m_range.min_col + 1,
@@ -230,8 +232,8 @@ def comp_table(worksheet: Worksheet,
                             bbox=BorderBox(
                                 top_left_y=int(row_dim[cur_m_range.min_row - 1]),
                                 top_left_x=int(col_dim[cur_m_range.min_col - 1]),
-                                bottom_right_y=int(row_dim[cur_m_range.max_row]),
-                                bottom_right_x=int(col_dim[cur_m_range.max_col]),
+                                bottom_right_y=int(row_dim[min(cur_m_range.max_row, len(row_dim) - 1)]),
+                                bottom_right_x=int(col_dim[min(cur_m_range.max_col, len(col_dim) - 1)]),
                             ),
                             text=extract_cell_value(
                                 cur_m_range.start_cell
@@ -275,25 +277,26 @@ def comp_table(worksheet: Worksheet,
         cells=cells,
     )
     struct_table_headered = get_headers_using_structured(struct_table, headers)
-    head_cells = []
-    for pack in struct_table_headered.header:
-        head_cells.extend(pack)
-    for cell in head_cells:
-        col = cell.col + 1
-        row = cell.row + 1
-        col_span = cell.col_span
-        row_span = cell.row_span
-        for r in range(row, row + row_span):
-            for c in range(col, col + col_span):
-                worksheet.cell(r, c).fill = HEADER_FILL
-    for cell in struct_table_headered.cells:
-        col = cell.col + 1
-        row = cell.row + 1
-        col_span = cell.col_span
-        row_span = cell.row_span
-        for r in range(row, row + row_span):
-            for c in range(col, col + col_span):
-                worksheet.cell(r, c).fill = PatternFill(start_color="CC55BB", end_color="CC55BB", fill_type="solid")
+    if len(struct_table_headered.cells) + sum([len(h) for h in struct_table_headered.header]) > 3:
+        head_cells = []
+        for pack in struct_table_headered.header:
+            head_cells.extend(pack)
+        for cell in head_cells:
+            col = cell.col + 1
+            row = cell.row + 1
+            col_span = cell.col_span
+            row_span = cell.row_span
+            for r in range(row, row + row_span):
+                for c in range(col, col + col_span):
+                    worksheet.cell(r, c).fill = HEADER_FILL
+        for cell in struct_table_headered.cells:
+            col = cell.col + 1
+            row = cell.row + 1
+            col_span = cell.col_span
+            row_span = cell.row_span
+            for r in range(row, row + row_span):
+                for c in range(col, col + col_span):
+                    worksheet.cell(r, c).fill = PatternFill(start_color="CC55BB", end_color="CC55BB", fill_type="solid")
     return struct_table_headered
 
 
@@ -444,6 +447,9 @@ def match_inf_res(xlsx_path: Path, images_dir: Path):
             continue
 
         img = cv2.imread(str((images_dir / f"{page_num}.png").absolute()))
+        if img is None:
+            LOGGER.warning("Image is empty or none, skipping processing on page %s", page_num)
+            continue
         img_shape = img.shape[:2]
 
         tables_proposals = clust_tables(worksheet, last_row, last_col)
@@ -454,7 +460,7 @@ def match_inf_res(xlsx_path: Path, images_dir: Path):
         col_dim = [dim * x_scale for dim in col_dim]
 
         headers = []
-        if last_row < 1000:
+        if not any([s > 10000 for s in img_shape]) and last_row < 1000:
             _, headers = cascade_rcnn_detector.inference_image(
                 images_dir / f"{page_num}.png", padding=200
             )
@@ -466,6 +472,8 @@ def match_inf_res(xlsx_path: Path, images_dir: Path):
             (prop[2], prop[3]),
             headers
         ) for prop in tables_proposals]
+
+        tables = [table for table in tables if len(table.cells) + sum([len(h) for h in table.header]) > 3]
 
         blocks = []
         blocks.extend(tables)
@@ -560,10 +568,3 @@ def run_excel_job(file: str, outpath: str):
     document = {"doc_name": str(Path(file).name), "pages": pages}
     save_document(document, out_dir / "document.json")
 
-
-if __name__ == "__main__":
-    run_excel_job(
-        [
-            "/Users/matvei_vargasov/code/novatris/excel_extractor/base/samples/Examples.xlsx"
-        ]
-    )
