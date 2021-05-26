@@ -54,15 +54,13 @@ CASCADE_CONFIG_PATH = (
     Path(os.environ.get("CASCADE_CONFIG_PATH"))
     if os.environ.get("CASCADE_CONFIG_PATH")
     else Path(__file__).parent.parent.parent.joinpath(
-        "configs/cascadetabnet_config_5_cls.py"
+        "configs/cascadetabnet_config_5_cls_w18.py"
     )
 )
 CASCADE_MODEL_PATH = (
     Path(os.environ.get("CASCADE_MODEL_PATH"))
     if os.environ.get("CASCADE_MODEL_PATH")
-    else Path(__file__).parent.parent.parent.joinpath(
-        "models/epoch_10_scale_4.pth"
-    )
+    else Path(__file__).parent.parent.parent.joinpath("models/epoch_20_w18.pth")
 )
 
 
