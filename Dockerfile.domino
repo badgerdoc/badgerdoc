@@ -1,6 +1,0 @@
-RUN pip install gdown==3.12.2 torch==1.7.0 torchvision==0.8.1 pillow==7.2.0 click==7.1.2 scipy==1.5.4
-RUN pip install mmcv-full==1.2.1+torch1.7.0+cpu -f https://download.openmmlab.com/mmcv/dist/index.html
-RUN git clone --branch v2.7.0 'https://github.com/open-mmlab/mmdetection.git'
-RUN cd mmdetection && python setup.py install && cd .. && rm -r mmdetection
-RUN mkdir /models && gdown "https://drive.google.com/uc?id=1EsrTmKm5_Px2XpDMUiERkv0HSEfstRVg" -O /models/epoch_41_acc_94_mmd_v2.pth && \
-    wget --output-document /models/cascadetabnet_config.py https://gist.githubusercontent.com/EgorOs/6bc38bc9b4c7b9eb6dbe0b9cd4ab2915/raw/e511f1e488046da173e5061b0476d11244c03a47/gistfile1.txt

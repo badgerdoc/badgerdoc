@@ -6,6 +6,12 @@ If you are using MacOS, then run `brew install poppler tesseract` first.
 2. Run `pip install -r requirements.txt` to install dependencies.
 3. Run `download.sh` to get the minimal set of files required to run inference.
 
+# Docker setup
+1. Run `docker build . -t badgerdoc-tb-extr`
+2. Use built image for example like this `docker run -it badgerdoc-tb-extr bash`
+
+Or any other way
+
 # Run pipeline
 
 Run pipeline on single pdf document
