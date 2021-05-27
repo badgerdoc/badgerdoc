@@ -6,7 +6,9 @@ from pathlib import Path
 from typing import Dict
 
 import click
+from openpyxl.reader.excel import SUPPORTED_FORMATS
 
+from excel_extractor import run_excel_job
 from table_extractor.cascade_rcnn_service.inference import (
     CascadeRCNNInferenceService,
 )
@@ -123,6 +125,21 @@ def run_sequentially_and_save(pdf_path, output_path, verbose, paddle_on):
 @click.option("--paddle_on", type=bool)
 def run_sequentially(pdf_path, output_path, verbose, paddle_on):
     run_sequentially_and_save(pdf_path, output_path, verbose, paddle_on)
+
+
+@run_pipeline.command()
+@click.argument("input_path")
+@click.argument("output_path")
+@click.option("--verbose", type=bool)
+@click.option("--paddle_on", type=bool)
+def run(input_path, output_path, verbose, paddle_on):
+    extension = os.path.splitext(input_path)[-1].lower()
+    if extension == ".pdf":
+        run_sequentially_and_save(input_path, output_path, verbose, paddle_on)
+    elif extension in SUPPORTED_FORMATS:
+        run_excel_job(input_path, output_path)
+    else:
+        raise ValueError("Not supported file format")
 
 
 if __name__ == "__main__":
