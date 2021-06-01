@@ -12,7 +12,14 @@ If you are using MacOS, then run `brew install poppler tesseract` first.
 
 Or any other way
 
-# Run pipeline
+# Run excel or pdf pipeline
+
+`python -m table_extractor.run run <path-to-pdf-or-excel> <results-output-dir> --verbose <true/false> --paddle_on <true/false>`
+Pipeline will automatically decide how parse your document based on file extension.
+Supported file formats:
+*.pdf, *.xlsx, *.xlsm, *.xltx, *.xltm
+
+# Run pdf pipeline
 
 Run pipeline on single pdf document
 
@@ -21,5 +28,5 @@ Run pipeline on single pdf document
 Results folder will have next structure:
 
 # Run excel extractor
-`python -m table_extractor.excel_run  <path-to-excel> <output-path>`
+`python -m excel_extractor.excel_run  <path-to-excel> <output-path>`
 Note! To run excel extraction correctly, please set File -> Export as PDF -> Structure -> Whole Sheet Export

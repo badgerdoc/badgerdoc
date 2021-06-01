@@ -1,6 +1,6 @@
 import click
 
-from table_extractor.excel_extractor import run_excel_job
+from excel_extractor import run_excel_job
 
 
 @click.command()
