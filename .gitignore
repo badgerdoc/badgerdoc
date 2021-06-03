@@ -308,3 +308,4 @@ paddle_detector/inference/*
 *.pid
 ./uploads
 cases75.txt
+/.train/
