@@ -24,7 +24,7 @@ CASCADE_CONFIG_PATH = (
     Path(os.environ.get("CASCADE_CONFIG_PATH"))
     if os.environ.get("CASCADE_CONFIG_PATH")
     else Path(__file__).parent.parent.joinpath(
-        "configs/cascadetabnet_config_5_cls_w18.py"
+        "configs/config_3_cls_w18.py"
     )
 )
 CASCADE_MODEL_PATH = (

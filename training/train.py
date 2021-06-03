@@ -156,7 +156,7 @@ def train(dataset_path,
           load_from,
           resume_from,
           config,
-          num_epochs
+          num_epoch
           ):
     coco_struct = get_dataset_struct(Path(dataset_path))
     working_dir_path = Path(working_dir)
@@ -173,7 +173,7 @@ def train(dataset_path,
         resume_from=resume_from,
         seed=None,
         validate=True,
-        epochs=num_epochs
+        epochs=num_epoch
     )
 
 

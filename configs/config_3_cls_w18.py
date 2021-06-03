@@ -1,5 +1,6 @@
 DATASET_TYPE = 'CocoDataset'
 CLASSES = ('table', 'Cell', 'header')
+gpu_ids = range(0, 1)
 model = dict(
     type='CascadeRCNN',
     pretrained='open-mmlab://msra/hrnetv2_w18',
@@ -195,7 +196,6 @@ test_cfg = dict(
         max_per_img=1000,
         mask_thr_binary=0.5)
 )
-dataset_type = 'TablesCoco'
 data_root = '/content/gp_icdar_nov/content/merged/'
 img_norm_cfg = dict(
     mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
@@ -228,19 +228,19 @@ data = dict(
     samples_per_gpu=1,
     workers_per_gpu=0,
     train=dict(
-        type=dataset_type,
+        type=DATASET_TYPE,
         classes=CLASSES,
         ann_file=data_root + 'train/train.json',
         img_prefix=data_root + 'train/images/',
         pipeline=train_pipeline),
     val=dict(
-        type=dataset_type,
+        type=DATASET_TYPE,
         classes=CLASSES,
         ann_file=data_root + 'val/val.json',
         img_prefix=data_root + 'val/images/',
         pipeline=test_pipeline),
     test=dict(
-        type=dataset_type,
+        type=DATASET_TYPE,
         classes=CLASSES,
         ann_file=data_root + 'test/test.json',
         img_prefix=data_root + 'test/images/',

@@ -552,7 +552,6 @@ class PageProcessor:
                             inf_table.bbox.box_is_inside_another(
                                 bordered_table.bbox, 0.8
                             )
-                            and inf_table.label == "Bordered"
                             and len(bordered_table.cells)
                             > len(inf_table.tags) * 0.5
                         ):
@@ -580,23 +579,6 @@ class PageProcessor:
                     inf_table.tags, in_inf_table
                 )
 
-                if inf_table.label == "Borderless" and False:
-                    semi_border = semi_bordered(img, inf_table)
-                    if semi_border:
-                        semi_bordered_tables.append(semi_border)
-                        semi_border_score = match_cells_table(
-                            in_inf_table, semi_border
-                        )
-                        if (
-                            semi_border_score >= mask_rcnn_count_matches
-                            and semi_border.count_cells() > len(inf_table.tags)
-                        ):
-                            struct_table = semi_border_to_struct(
-                                semi_border, img.shape
-                            )
-                            if struct_table:
-                                page.tables.append(struct_table)
-                            continue
                 struct = self.extract_table_from_inference(
                     img, inf_table, not_matched, img.shape, image_path
                 )
