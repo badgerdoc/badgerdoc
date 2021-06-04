@@ -476,7 +476,7 @@ def process_page(poppler_page: PopplerPage, page: Page, image_path: Path):
 
 
 def process_pdf(pdf_path: Path, json_path: Path, pdfs_preprocess_dir: Path):
-    # convert_pdf_to_images(pdf_path, pdfs_preprocess_dir / pdf_path.name, already_incl=True)
+    convert_pdf_to_images(pdf_path, pdfs_preprocess_dir / pdf_path.name, already_incl=True)
     poppler_pages = extract_text(pdf_path)
     with open(str(json_path.absolute()), 'r') as f:
         data = json.loads(f.read())
