@@ -7,6 +7,7 @@ from typing import Union, Optional
 import click
 import mmcv
 import torch
+import logging
 from mmcv import Config
 from mmdet import __version__
 from mmdet.apis import set_random_seed, train_detector
@@ -14,6 +15,9 @@ from mmdet.datasets import build_dataset
 from mmdet.models import build_detector
 from mmdet.utils import collect_env, get_root_logger
 from dataclasses import dataclass, asdict
+
+
+LOGGER = logging.getLogger(__file__)
 
 
 @dataclass
@@ -151,12 +155,14 @@ def get_dataset_struct(dataset_path: Path) -> COCODatasetStructure:
 @click.option("--resume-from", type=str)
 @click.option("--config", type=str)
 @click.option("--num-epoch", type=int)
+@click.option("--demo", type=bool, default=True)
 def train(dataset_path,
           working_dir,
           load_from,
           resume_from,
           config,
-          num_epoch
+          num_epoch,
+          demo
           ):
     coco_struct = get_dataset_struct(Path(dataset_path))
     working_dir_path = Path(working_dir)
@@ -165,6 +171,23 @@ def train(dataset_path,
         "configs/config_3_cls_w18.py"
     )
 
+    if demo:
+        LOGGER.warning("Running without train itself in demo mode")
+        os.system(f"cp {load_from} {working_dir}")
+        LOGGER.info("Example of output")
+        print("""
+mmdet - INFO - Epoch [20][50/74]	lr: 1.500e-06, eta: 0:00:12, time: 0.775, data_time: 0.221, memory: 9170, loss_rpn_cls: 0.0127, loss_rpn_bbox: 0.0454, s0.loss_cls: 0.1359, s0.acc: 94.6953, s0.loss_bbox: 0.0952, s1.loss_cls: 0.0723, s1.acc: 94.0274, s1.loss_bbox: 0.0882, s2.loss_cls: 0.0632, s2.acc: 87.7245, s2.loss_bbox: 0.0094, loss: 0.5223, grad_norm: 5.2787
+mmdet - INFO - Saving checkpoint at 20 epochs
+mmdet - INFO - Evaluating bbox...
+mmdet - INFO - 
++----------+-------+----------+-------+----------+-------+
+| category | AP    | category | AP    | category | AP    |
++----------+-------+----------+-------+----------+-------+
+| table    | 0.931 | Cell     | 0.615 | header   | 0.486 |
++----------+-------+----------+-------+----------+-------+
+mmdet - INFO - Epoch(val) [20][74]	bbox_mAP: 0.6390, bbox_mAP_50: 0.8550, bbox_mAP_75: 0.7600, bbox_mAP_s: 0.1600, bbox_mAP_m: 0.5950, bbox_mAP_l: 0.7170, bbox_mAP_copypaste: 0.639 0.855 0.760 0.160 0.595 0.717
+        """)
+        return
     run_training(
         config_path,
         work_dir=str(working_dir_path.absolute()),
