@@ -18,7 +18,7 @@ We expect that all BadgerDoc results will be processed manually to correct possi
 If any errors occurs - try to fix annotations in ttv directory with [coco annotator](https://github.com/jsbroks/coco-annotator) or any other annotation tool
 
 ### Training
-! Training can be run only on the machine with GPU. Would be better to use at least Tesla K80 or Tesla T4. With Tesla T 4 you could achieve better performance
+! Training can be run only on the machine with GPU. Would be better to use at least Tesla T4.
 
 To run training use with command: 
 ```
@@ -31,7 +31,17 @@ python -m training.train
           --config <path-to-configuration(optional)> # By default will be used configs/config_3_cls_w18.py, but you could redefine it and provide your config
                                                      # To understand config options please refere to https://github.com/open-mmlab/mmdetection
           --num-epoch <num-epochs-to-train>
+          --demo <False/True>                        # To run demo mode
 ```
 
 ### Use trained models
 To use trained models redefine environment variables ```CASCADE_CONFIG_PATH``` and ```CASCADE_MODEL_PATH``` before start
+
+## Docker file
+Also ```training/train.Docker``` file provided to train your models.
+### Training docker requirements
+* CUDA 11.0 (normally AWS instances with GPU already have CUDA drivers)
+* nvidia-docker2 https://github.com/NVIDIA/nvidia-docker
+* k8s-device-plugin https://github.com/NVIDIA/k8s-device-plugin
+
+**To run your model training use ```python3``` instead of ```python```**
