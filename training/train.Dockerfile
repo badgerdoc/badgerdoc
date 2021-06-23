@@ -23,9 +23,9 @@ RUN git clone --branch v2.7.0 'https://github.com/open-mmlab/mmdetection.git' /m
     cd -
 
 RUN mkdir /models && \
-    gdown "https://drive.google.com/uc?id=17Xtqh3X9_Hu4BWFTiJpgmYipouFMy0sG" -O /models/epoch_20_w18.pth
+    gdown "https://drive.google.com/uc?id=1YmO5O8kBPI9XZWASTWqP1Qh4skqQu7US" -O /models/3_cls_w18_e30.pth
 
-ENV CASCADE_MODEL_PATH="/models/epoch_20_w18.pth"
+ENV CASCADE_MODEL_PATH="/models/3_cls_w18_e30.pth"
 
 RUN mkdir /mmcv2 && wget -P /mmcv2 https://download.openmmlab.com/mmcv/dist/1.2.2/torch1.7.0/cu110/mmcv_full-1.2.2%2Btorch1.7.0%2Bcu110-cp38-cp38-manylinux1_x86_64.whl
 RUN pip3 uninstall mmcv
