@@ -1,7 +1,7 @@
 import json
 import os
 import string
-from datetime import datetime
+from pathlib import Path
 
 import pandas as pd
 import regex
@@ -15,13 +15,11 @@ save_path = os.path.dirname(os.path.abspath(__file__))
 stemmer = WordNetLemmatizer()
 word_list = set(words.words())
 stoplist = set(stopwords.words("english"))
-# stoplist.union({'(', ')'})
 
 
-def read_from_file(file):
-    with open(file, "r") as f:
-        cells = f.readlines()
-    return [cell.replace("\n", " ").replace("  ", " ") for cell in cells]
+def read_from_file(file: Path):
+    with open(str(file.absolute()), "r") as f:
+        return f.readlines()
 
 
 def translate(word) -> str:
@@ -38,20 +36,16 @@ def lemmatize_or_split(word: str) -> str or list:
     """
 
     reg.match(string.punctuation).group(0)
-    punctuation = reg.match(word)
+    try:
+        punctuation = reg.match(word)
+    except Exception as e:
+        print(word)
 
     if word not in word_list and punctuation:
         lst = list(punctuation.group(0))
         lst.append(stemmer.lemmatize(translate(word)))
         return lst
     return stemmer.lemmatize(word)
-
-    # if word in word_list:
-    #     return word
-    # else:
-    #     lst = list(word)
-    #     lst.append(translate(word))
-    #     return lst
 
 
 def count_probability(df: pd.DataFrame) -> pd.DataFrame:
@@ -73,8 +67,6 @@ def count_probability(df: pd.DataFrame) -> pd.DataFrame:
         final_df["words"].value_counts(normalize=True)
     )
 
-    # final_df.reset_index(drop=True, inplace=True)
-    # Drop stop list words
     final_df = final_df[~final_df["words"].isin(stoplist)]
 
     return final_df
@@ -86,34 +78,27 @@ def count_number_probability(df):
     return df["probability"].mean() * (len(numbers) / len(df))
 
 
-def run_lemmatizer(name):
+def process_words(name, sequence):
+    sequence = [cell.replace("\n", " ").replace("  ", " ") for cell in sequence]
+    df = pd.DataFrame(sequence, columns=["words"])
+    df = count_probability(df)
+    number_probability = count_number_probability(df)
+    df.set_index("words", inplace=True)
+    df = df[~df.index.duplicated()]
+    df.rename_axis(index={"words": f"{name}"}, inplace=True)
+    main_dict = df.to_dict(orient="index")
+    main_dict = {"data": main_dict, "number_probability": number_probability}
+    return main_dict
+
+
+def run_lemmatizer(name, text_path: Path, out_path: Path):
     """
     @param name: name of the cell type
     """
 
     sequence = read_from_file(
-        f"/home/ilia/Documents/IdeaProjects/badgerdoc/{name}.txt"
+        text_path
     )
-    df = pd.DataFrame(sequence, columns=["words"])
-    df = count_probability(df)
-    number_probability = count_number_probability(df)
-    df.set_index("words", inplace=True)
-
-    df = df[~df.index.duplicated()]
-    df.rename_axis(index={"words": f"{name}"}, inplace=True)
-    main_dict = df.to_dict(orient="index")
-    main_dict = {"data": main_dict, "number_probability": number_probability}
-    with open(f"{save_path}/{name}.json", "w") as f:
+    main_dict = process_words(name, sequence)
+    with open(out_path, "w") as f:
         f.write(json.dumps(main_dict))
-    return df
-
-
-if __name__ == "__main__":
-    start = datetime.now()
-    dfh = run_lemmatizer("headers")
-    # Drop digits in headers
-    # dfh = dfh[~dfh['words'].str.isdigit()]
-    dfc = run_lemmatizer("cells")
-    # TODO: number probability
-
-    print(datetime.now() - start)

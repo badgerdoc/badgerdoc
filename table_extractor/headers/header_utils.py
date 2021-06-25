@@ -1,4 +1,5 @@
 import json
+import os
 import string
 from pathlib import Path
 from typing import List, Tuple
@@ -16,6 +17,14 @@ stop_list = set(stopwords.words("english"))
 word_list = set(words.words())
 SPECIAL_CHARACTERS_REGEX = regex.compile("[%=]+")
 NUMBER_REGEX = regex.compile("([0-9]+\\.[0-9]+)")
+CELL_DICT = os.environ.get(
+    'CELL_DICT',
+    Path(__file__).parent.parent.parent.joinpath("language/cells_exc.json")
+)
+HEADER_DICT = os.environ.get(
+    'HEADER_DICT',
+    Path(__file__).parent.parent.parent.joinpath("language/headers_exc.json")
+)
 
 
 def softmax(array: Tuple[float]) -> List[float]:
