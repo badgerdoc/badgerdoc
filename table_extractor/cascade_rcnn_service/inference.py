@@ -16,9 +16,9 @@ from table_extractor.cascade_rcnn_service.utils import (
 )
 from table_extractor.model.table import BorderBox, Cell
 
-CLASS_NAMES = ("Bordered", "Cell", "Borderless", "Header", "Table_annotation")
+CLASS_NAMES = ("table", "Cell", "header")
 DEFAULT_THRESHOLD = 0.3
-TABLE_TAGS = ("Bordered", "Borderless")
+TABLE_TAGS = "table"
 CELL_TAG = "Cell"
 logger = logging.getLogger(__name__)
 
@@ -69,12 +69,12 @@ def inference_result_to_boxes(
     inference_page_result: List[Dict[str, Any]]
 ) -> Tuple[List[InferenceTable], List[Cell], List[BorderBox]]:
     raw_tables = [
-        tag for tag in inference_page_result if tag["label"] in TABLE_TAGS
+        tag for tag in inference_page_result if tag["label"] == TABLE_TAGS
     ]
     raw_headers = [
         _raw_to_cell(tag)
         for tag in inference_page_result
-        if tag["label"] == "Header"
+        if tag["label"] == "header"
     ]
     inference_tables: List[InferenceTable] = [
         _raw_to_table(raw_table) for raw_table in raw_tables
@@ -108,7 +108,7 @@ def inference_result_to_boxes(
                     + 50,
                 ),
                 confidence=0.5,
-                label="Borderless",
+                label="table",
                 tags=raw_cells,
             )
         )
@@ -130,7 +130,7 @@ def inference_result_to_boxes(
                     + 50,
                 ),
                 confidence=0.5,
-                label="Borderless",
+                label="table",
                 tags=not_matched,
             )
         )

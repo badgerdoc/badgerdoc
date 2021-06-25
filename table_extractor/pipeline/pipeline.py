@@ -30,7 +30,6 @@ from table_extractor.model.table import (
     Table,
     TextField,
 )
-from table_extractor.paddle_service.text_detector import PaddleDetector
 from table_extractor.pdf_service.pdf_to_image import convert_pdf_to_images
 from table_extractor.poppler_service.poppler_text_extractor import (
     PopplerPage,
@@ -314,12 +313,10 @@ class PageProcessor:
     def __init__(
         self,
         inference_service: CascadeRCNNInferenceService,
-        text_detector: PaddleDetector,
         visualizer: TableVisualizer,
         paddle_on=True,
     ):
         self.inference_service = inference_service
-        self.text_detector = text_detector
         self.visualizer = visualizer
         self.paddle_on = paddle_on
         self.header_checker = HeaderChecker()
@@ -552,7 +549,6 @@ class PageProcessor:
                             inf_table.bbox.box_is_inside_another(
                                 bordered_table.bbox, 0.8
                             )
-                            and inf_table.label == "Bordered"
                             and len(bordered_table.cells)
                             > len(inf_table.tags) * 0.5
                         ):
@@ -566,37 +562,11 @@ class PageProcessor:
                 in_inf_table, text_fields_to_match = match_table_text(
                     inf_table, text_fields_to_match
                 )
-                logger.info("Start paddle")
-                paddle_fields = self.text_detector.extract_table_text(
-                    img, inf_table.bbox
-                )
-                logger.info("End paddle")
-                if paddle_fields:
-                    in_inf_table = merge_text_fields(
-                        paddle_fields, in_inf_table
-                    )
 
                 mask_rcnn_count_matches, not_matched = match_cells_text_fields(
                     inf_table.tags, in_inf_table
                 )
 
-                if inf_table.label == "Borderless" and False:
-                    semi_border = semi_bordered(img, inf_table)
-                    if semi_border:
-                        semi_bordered_tables.append(semi_border)
-                        semi_border_score = match_cells_table(
-                            in_inf_table, semi_border
-                        )
-                        if (
-                            semi_border_score >= mask_rcnn_count_matches
-                            and semi_border.count_cells() > len(inf_table.tags)
-                        ):
-                            struct_table = semi_border_to_struct(
-                                semi_border, img.shape
-                            )
-                            if struct_table:
-                                page.tables.append(struct_table)
-                            continue
                 struct = self.extract_table_from_inference(
                     img, inf_table, not_matched, img.shape, image_path
                 )

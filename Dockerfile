@@ -42,7 +42,7 @@ RUN python -m nltk.downloader stopwords && \
     python -m nltk.downloader wordnet
 
 RUN mkdir /models && \
-    gdown "https://drive.google.com/uc?id=17Xtqh3X9_Hu4BWFTiJpgmYipouFMy0sG" -O /models/epoch_20_w18.pth && \
+    gdown "https://drive.google.com/uc?id=1YmO5O8kBPI9XZWASTWqP1Qh4skqQu7US" -O /models/3_cls_w18_e30.pth && \
     wget --output-document /models/ch_ppocr_mobile_v2.0_det_infer.tar https://paddleocr.bj.bcebos.com/dygraph_v2.0/ch/ch_ppocr_mobile_v2.0_det_infer.tar && \
     tar xf /models/ch_ppocr_mobile_v2.0_det_infer.tar -C /models && \
     rm -rf /models/ch_ppocr_mobile_v2.0_det_infer.tar && \
@@ -54,7 +54,7 @@ RUN mkdir /models && \
     rm -rf /models/ch_ppocr_mobile_v2.0_cls_infer.tar
 
 ENV LIBRE_RUN="libreoffice6.4"
-ENV CASCADE_MODEL_PATH="/models/epoch_20_w18.pth"
+ENV CASCADE_MODEL_PATH="/models/3_cls_w18_e30.pth"
 ENV PADDLE_MODEL_DIR="/models/ch_ppocr_server_v2.0_det_infer"
 ENV PADDLE_MODEL_CLS="/models/ch_ppocr_server_v2.0_cls_infer"
 

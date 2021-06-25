@@ -51,6 +51,16 @@ class BorderBox:
             (intersection_area / bb) > threshold for bb in (bb1_area, bb2_area)
         )
 
+    def box_is_inside_box(self, bb2, threshold=0.95) -> bool:
+        (
+            intersection_area,
+            bb1_area,
+            bb2_area,
+        ) = self.get_boxes_intersection_area(other_box=bb2)
+        if intersection_area == 0:
+            return False
+        return (intersection_area / bb1_area) > threshold
+
     def get_boxes_intersection_area(self, other_box) -> Tuple:
         bb1 = self.box
         bb2 = other_box.box
@@ -68,6 +78,15 @@ class BorderBox:
 
     def __getitem__(self, item):
         return self.box[item]
+
+    @classmethod
+    def from_dict(cls, d):
+        return cls(
+            top_left_x=d.get('left', 0),
+            top_left_y=d.get('top', 0),
+            bottom_right_x=d.get('left', 0) + d.get('width', 0),
+            bottom_right_y=d.get('top', 0) + d.get('height', 0),
+        )
 
 
 @dataclass(unsafe_hash=True)
@@ -129,6 +148,17 @@ class CellLinked(Cell):
     col_span: int = 0
     row_span: int = 0
 
+    @classmethod
+    def from_dict(cls, d):
+        return CellLinked(
+            *BorderBox.from_dict(d['bbox']).box,
+            col=d['column'],
+            row=d['row'],
+            col_span=d['colspan'],
+            row_span=d['rowspan'],
+            text_boxes=[]
+        )
+
 
 @dataclass
 class StructuredTable:
@@ -166,9 +196,23 @@ class StructuredTable:
         ]
 
 
+def flatten(list_fo_lists: List[List]) -> List:
+    res = []
+    for l in list_fo_lists:
+        for element in l:
+            res.append(element)
+    return res
+
+
 @dataclass
 class StructuredTableHeadered(StructuredTable):
     header: List[List[CellLinked]] = field(default_factory=list)
+    header_rows: List[List[CellLinked]] = field(default_factory=list)
+    header_cols: List[List[CellLinked]] = field(default_factory=list)
+
+    @property
+    def all_cells(self):
+        return self.cells + flatten(self.header_rows) + flatten(self.header_cols)
 
     @staticmethod
     def from_structured_and_rows(
@@ -199,6 +243,35 @@ class StructuredTableHeadered(StructuredTable):
 
         self.header.extend(header_cols)
         self.cells = body_cells
+
+    @classmethod
+    def from_dict(cls, d):
+        header_cells = [CellLinked.from_dict(h_cell) for h_cell in d['header']]
+        body_cells = [CellLinked.from_dict(cell) for cell in d['cells']]
+        all_cells = header_cells + body_cells
+        num_cols = max([cell.col + cell.col_span - 1 for cell in all_cells]) + 1
+        header_by_rows = {}
+        for cell in header_cells:
+            if cell.row in header_by_rows:
+                header_by_rows[cell.row].append(cell)
+            else:
+                header_by_rows[cell.row] = [cell]
+        row_header = []
+        col_header = []
+        for row, cells in header_by_rows.items():
+            max_col = max([cell.col + cell.col_span - 1 for cell in cells])
+            if max_col >= num_cols - 1:
+                row_header.append(cells)
+            else:
+                col_header.append(cells)
+
+        return cls(
+            bbox=BorderBox.from_dict(d['bbox']),
+            cells=body_cells,
+            header=row_header + col_header,
+            header_rows=row_header,
+            header_cols=col_header
+        )
 
 
 @dataclass

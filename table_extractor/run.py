@@ -12,7 +12,6 @@ from excel_extractor import run_excel_job
 from table_extractor.cascade_rcnn_service.inference import (
     CascadeRCNNInferenceService,
 )
-from table_extractor.paddle_service.text_detector import PaddleSwitchWrapper
 from table_extractor.pipeline.pipeline import PageProcessor, pdf_preprocess
 from table_extractor.visualization.table_visualizer import TableVisualizer
 
@@ -24,13 +23,13 @@ CASCADE_CONFIG_PATH = (
     Path(os.environ.get("CASCADE_CONFIG_PATH"))
     if os.environ.get("CASCADE_CONFIG_PATH")
     else Path(__file__).parent.parent.joinpath(
-        "configs/cascadetabnet_config_5_cls_w18.py"
+        "configs/config_3_cls_w18.py"
     )
 )
 CASCADE_MODEL_PATH = (
     Path(os.environ.get("CASCADE_MODEL_PATH"))
     if os.environ.get("CASCADE_MODEL_PATH")
-    else Path(__file__).parent.parent.joinpath("models/epoch_20_w18.pth")
+    else Path(__file__).parent.parent.joinpath("models/3_cls_w18_e30.pth")
 )
 PADDLE_MODEL_DIR = (
     Path(os.environ.get("PADDLE_MODEL_DIR"))
@@ -94,13 +93,11 @@ def run_pipeline_sequentially(
         PADDLE_MODEL_CLS,
         paddle_on,
     )
-    paddle_detector = PaddleSwitchWrapper(
-        PADDLE_MODEL_DIR, PADDLE_MODEL_CLS, paddle_on
-    )
+
     LOGGER.info("Visualizer should_visualize set to: %s", should_visualize)
     visualizer = TableVisualizer(should_visualize)
     page_processor = PageProcessor(
-        cascade_rcnn_detector, paddle_detector, visualizer, paddle_on
+        cascade_rcnn_detector, visualizer, paddle_on
     )
     images_path, poppler_pages = pdf_preprocess(pdf_path, output_dir)
     pages = page_processor.process_pages(images_path, poppler_pages)

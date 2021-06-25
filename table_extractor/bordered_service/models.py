@@ -11,7 +11,7 @@ from table_extractor.model.table import (
     Row,
     StructuredTable,
     Table,
-    TextField,
+    TextField, StructuredTableHeadered,
 )
 from table_extractor.tesseract_service.tesseract_extractor import TextExtractor
 
@@ -141,12 +141,26 @@ class Image:
 class Page:
     page_num: int
     bbox: BorderBox
-    tables: List[StructuredTable] = field(default_factory=list)
+    tables: List[Union[StructuredTable, StructuredTableHeadered]] = field(default_factory=list)
     text: List[TextField] = field(default_factory=list)
 
     @property
     def blocks(self) -> List[Union[StructuredTable, TextField]]:
         return sorted(self.tables + self.text, key=lambda x: x.bbox.top_left_y)
+
+    @classmethod
+    def from_dict(cls, d):
+        blocks = d.get('blocks', [])
+        tables = [block for block in blocks if block['type'] == 'table']
+        # ToDo: include or replace with DoD
+        text_blocks = []
+
+        return cls(
+            page_num=int(d['page_num']),
+            bbox=BorderBox.from_dict(d['bbox']),
+            tables=[StructuredTableHeadered.from_dict(t) for t in tables],
+            text=text_blocks,
+        )
 
 
 @dataclass
