@@ -40,20 +40,36 @@ def _draw_rectangle(
     img: np.ndarray,
     bbox: BorderBox,
 ):
+    x1 = int(bbox.top_left_x)
+    x2 = int(bbox.bottom_right_x)
+    y1 = int(bbox.top_left_y)
+    y2 = int(bbox.bottom_right_y)
+
+    x1 = max(0, x1)
+    y1 = max(0, y1)
+    if x1 >= img.shape[1] or y1 >= img.shape[0]:
+        LOGGER.debug("BBox outside the image")
+        return
+    x2 = min(x2, img.shape[1] - 1)
+    y2 = min(y2, img.shape[0] - 1)
+    if x2 <= x1 or y2 <= y1:
+        LOGGER.debug("BBox incorrect")
+        return
+
     cv2.rectangle(
         img,
-        (int(bbox.top_left_x), int(bbox.top_left_y)),
-        (int(bbox.bottom_right_x), int(bbox.bottom_right_y)),
+        (x1, y1),
+        (x2, y2),
         color,
         thickness,
     )
-    sub = img[int(bbox.top_left_y):int(bbox.bottom_right_y), int(bbox.top_left_x):int(bbox.bottom_right_x)]
+    sub = img[y1:y2, x1:x2]
 
     black = np.zeros_like(sub)
     black[0:black.shape[0], 0:black.shape[1]] = color
 
     blend = cv2.addWeighted(sub, 0.75, black, 0.25, 0)
-    img[int(bbox.top_left_y):int(bbox.bottom_right_y), int(bbox.top_left_x):int(bbox.bottom_right_x)] = blend
+    img[y1:y2, x1:x2] = blend
 
 
 def draw_text_boxes(img: np.ndarray, text_fields: List[TextField]):
