@@ -83,7 +83,6 @@ def create_pdf(xlsx_path: Path, out_path: Path):
     exit_code = os.system(
         f"{os.environ.get('LIBRE_RUN') if os.environ.get('LIBRE_RUN') else 'libreoffice'} --headless --convert-to pdf "
         f"--outdir '{str(out_path.absolute())}' '{str(xlsx_path.absolute())}'"
-        f" -env:UserInstallation=file://{str(Path(__file__).parent.parent.joinpath('configs/').absolute())}"
     )
     if exit_code != 0:
         raise ValueError("Can not create PDF!")
