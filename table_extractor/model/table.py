@@ -171,9 +171,9 @@ class StructuredTable:
         for cell in self.cells:
             for row in range(cell.row, cell.row + cell.row_span):
                 if row not in rows:
-                    rows[cell.row] = [cell]
+                    rows[row] = [cell]
                 else:
-                    rows[cell.row].append(cell)
+                    rows[row].append(cell)
         return [
             row
             for num, row in sorted(
@@ -186,10 +186,10 @@ class StructuredTable:
         cols = {}
         for cell in self.cells:
             for col in range(cell.col, cell.col + cell.col_span):
-                if cell.col not in cols:
-                    cols[cell.col] = [cell]
+                if col not in cols:
+                    cols[col] = [cell]
                 else:
-                    cols[cell.col].append(cell)
+                    cols[col].append(cell)
         return [
             col
             for num, col in sorted(
