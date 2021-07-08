@@ -12,20 +12,30 @@ If you are using MacOS, then run `brew install poppler tesseract` first.
 
 Or any other way
 
+# Use models from AWS S3
+If you would like to download models from S3, Before running setup following environment variables for example with docker env file
+AWS_S3_ENDPOINT       # S3 endpoint url
+AWS_ACCESS_KEY_ID     # aws access key id
+AWS_SECRET_ACCESS_KEY # aws secret access key
+AWS_REGION            # AWS region name
+AWS_S3_SSE_TYPE       # AWS SSE type (optional)
+
 # Run excel or pdf pipeline
 
-`python -m table_extractor.run run <path-to-pdf-or-excel> <results-output-dir> --verbose <true/false> --paddle_on <true/false>`
+`python -m table_extractor.run run <path-to-pdf-or-excel> <results-output-dir> --model_path <model-file-path> --verbose <true/false> --paddle_on <true/false>`
 Pipeline will automatically decide how parse your document based on file extension.
 Supported file formats:
 *.pdf, *.xlsx, *.xlsm, *.xltx, *.xltm
+
+Model on S3 could be used if `<model-file-path>` provided in format `s3://<bucket>/<models_path>`
 
 # Run pdf pipeline
 
 Run pipeline on single pdf document
 
-`python -m table_extractor.run run-sequentially <path-to-pdf> <results-output-dir> --verbose <true/false> --paddle_on <true/false>`
+`python -m table_extractor.run run-sequentially <path-to-pdf> <results-output-dir> --model_path <model-file-path> --verbose <true/false> --paddle_on <true/false>`
 
-Results folder will have next structure:
+Model on S3 could be used if `<model-file-path>` provided in format `s3://<bucket>/<models_path>`
 
 # Run excel extractor
 `python -m excel_extractor.excel_run  <path-to-excel> <output-path>`
