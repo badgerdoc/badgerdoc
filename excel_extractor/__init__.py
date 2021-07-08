@@ -113,30 +113,19 @@ def cell_in_inf_header(cell: CellLinked, inf_headers: List[Cell]) -> float:
     return max(confidences)
 
 
-def analyse(series: List[CellLinked], inf_headers: List[Cell]):
+def analyse(series: List[CellLinked]):
     # Check if series is header
     headers = []
-    first_line = False
     for cell in series:
-        inf_header_score = cell_in_inf_header(cell, inf_headers)
         header_score, cell_score = softmax(HEADER_CHECKER.get_cell_score(cell))
-        header_score, cell_score = softmax(
-            (header_score + inf_header_score, cell_score)
-        )
-
         if header_score > cell_score:
             headers.append(cell)
-        if cell.col == 0 and cell.row == 0:
-            first_line = True
-    if first_line:
-        empty_cells_num = _count_empty_cells(series)
-        return len(headers) > (len(series) - empty_cells_num) / 2
-    # return len(headers) > (len(series) / 5) if len(series) > thresh else len(headers) > (len(series) / 2)
+
     return len(headers) > (len(series) / 2)
 
 
 def create_header(
-    series: List[List[CellLinked]], inf_headers: List[Cell], header_limit: int
+    series: List[List[CellLinked]], header_limit: int
 ):
     """
     Search for headers based on cells contents
@@ -147,7 +136,7 @@ def create_header(
     header_candidates = []
     last_header = None
     for idx, line in enumerate(series[:header_limit]):
-        if analyse(line, inf_headers):
+        if analyse(line):
             header_candidates.append((idx, True, line))
             last_header = idx
         else:
@@ -161,22 +150,20 @@ def create_header(
     else:
         header = []
 
-    if len(header) > 0.75 * len(series):
+    if len(header) > 0.65 * len(series):
         header = []
 
     return header
 
 
 def get_headers_using_structured(
-    table: StructuredTable, headers: List[Cell]
+    table: StructuredTable
 ) -> StructuredTableHeadered:
-    header_rows = create_header(table.rows, headers, 4)
-    if not header_rows:
-        header_rows = table.rows[:1]
+    header_rows = create_header(table.rows, 4)
     table_with_header = StructuredTableHeadered.from_structured_and_rows(
         table, header_rows
     )
-    header_cols = create_header(table.cols, headers, 1)
+    header_cols = create_header(table.cols, 1)
     table_with_header.actualize_header_with_cols(header_cols)
 
     return table_with_header
@@ -186,8 +173,7 @@ def comp_table(worksheet: Worksheet,
                row_dim: List[float],
                col_dim: List[float],
                s_cell: Tuple[int, int],
-               e_cell: Tuple[int, int],
-               headers: List[Cell]):
+               e_cell: Tuple[int, int]):
     m_ranges = []
     for m_range in worksheet.merged_cells.ranges:
             m_ranges.append(m_range)
@@ -275,7 +261,7 @@ def comp_table(worksheet: Worksheet,
         ),
         cells=cells,
     )
-    struct_table_headered = get_headers_using_structured(struct_table, headers)
+    struct_table_headered = get_headers_using_structured(struct_table)
     if len(struct_table_headered.cells) + sum([len(h) for h in struct_table_headered.header]) > 3:
         head_cells = []
         for pack in struct_table_headered.header:
@@ -379,14 +365,6 @@ def extract_cell_value(ws_cell: WsCell):
 
 
 def match_inf_res(xlsx_path: Path, images_dir: Path):
-    LOGGER.info(
-        "Initializing CascadeMaskRCNN with config: %s and model: %s",
-        CASCADE_CONFIG_PATH,
-        CASCADE_MODEL_PATH,
-    )
-    cascade_rcnn_detector = CascadeRCNNInferenceService(
-        CASCADE_CONFIG_PATH, CASCADE_MODEL_PATH, True
-    )
     pages = []
     workbook = load_workbook(str(xlsx_path.absolute()), data_only=True)
     for page_num, worksheet in enumerate(workbook.worksheets):
@@ -458,18 +436,12 @@ def match_inf_res(xlsx_path: Path, images_dir: Path):
         row_dim = [dim * y_scale for dim in row_dim]
         col_dim = [dim * x_scale for dim in col_dim]
 
-        headers = []
-        if not any([s > 10000 for s in img_shape]) and last_row < 1000:
-            _, headers = cascade_rcnn_detector.inference_image(
-                images_dir / f"{page_num}.png", padding=200
-            )
         tables = [comp_table(
             worksheet,
             row_dim,
             col_dim,
             (prop[0], prop[1]),
             (prop[2], prop[3]),
-            headers
         ) for prop in tables_proposals]
 
         tables = [table for table in tables if len(table.cells) + sum([len(h) for h in table.header]) > 3]
