@@ -16,6 +16,7 @@ from mmdet.models import build_detector
 from mmdet.utils import collect_env, get_root_logger
 from dataclasses import dataclass, asdict
 
+from training.utils import download_model_from_path, get_local_model_filepath, upload_model
 
 LOGGER = logging.getLogger(__file__)
 
@@ -154,6 +155,7 @@ def get_dataset_struct(dataset_path: Path) -> COCODatasetStructure:
 @click.option("--load-from", type=str)
 @click.option("--resume-from", type=str)
 @click.option("--config", type=str)
+@click.option("--model_output", type=str)
 @click.option("--num-epoch", type=int)
 @click.option("--demo", type=bool, default=True)
 def train(dataset_path,
@@ -161,6 +163,7 @@ def train(dataset_path,
           load_from,
           resume_from,
           config,
+          model_output,
           num_epoch,
           demo
           ):
@@ -170,6 +173,8 @@ def train(dataset_path,
     config_path = Path(config) if config else Path(__file__).parent.parent.joinpath(
         "configs/config_3_cls_w18.py"
     )
+    source_model = '/tmp/source.pth'
+    download_model_from_path(load_from, source_model)
 
     if demo:
         LOGGER.warning("Running without train itself in demo mode")
@@ -187,17 +192,19 @@ mmdet - INFO -
 +----------+-------+----------+-------+----------+-------+
 mmdet - INFO - Epoch(val) [20][74]	bbox_mAP: 0.6390, bbox_mAP_50: 0.8550, bbox_mAP_75: 0.7600, bbox_mAP_s: 0.1600, bbox_mAP_m: 0.5950, bbox_mAP_l: 0.7170, bbox_mAP_copypaste: 0.639 0.855 0.760 0.160 0.595 0.717
         """)
-        return
-    run_training(
-        config_path,
-        work_dir=str(working_dir_path.absolute()),
-        dataset_structure=coco_struct,
-        load_from=load_from,
-        resume_from=resume_from,
-        seed=None,
-        validate=True,
-        epochs=num_epoch
-    )
+    else:
+        run_training(
+            config_path,
+            work_dir=str(working_dir_path.absolute()),
+            dataset_structure=coco_struct,
+            load_from=source_model,
+            resume_from=resume_from,
+            seed=None,
+            validate=True,
+            epochs=num_epoch
+        )
+    model = get_local_model_filepath(str(working_dir_path.absolute()))
+    upload_model(model, model_output)
 
 
 if __name__ == '__main__':
