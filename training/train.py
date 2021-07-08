@@ -178,7 +178,7 @@ def train(dataset_path,
 
     if demo:
         LOGGER.warning("Running without train itself in demo mode")
-        os.system(f"cp {load_from} {working_dir}")
+        os.system(f"cp {load_from} {working_dir}/epoch_1.pth")
         LOGGER.info("Example of output")
         print("""
 mmdet - INFO - Epoch [20][50/74]	lr: 1.500e-06, eta: 0:00:12, time: 0.775, data_time: 0.221, memory: 9170, loss_rpn_cls: 0.0127, loss_rpn_bbox: 0.0454, s0.loss_cls: 0.1359, s0.acc: 94.6953, s0.loss_bbox: 0.0952, s1.loss_cls: 0.0723, s1.acc: 94.0274, s1.loss_bbox: 0.0882, s2.loss_cls: 0.0632, s2.acc: 87.7245, s2.loss_bbox: 0.0094, loss: 0.5223, grad_norm: 5.2787
