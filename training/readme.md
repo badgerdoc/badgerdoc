@@ -2,7 +2,8 @@
 
 To run preprocess for training use this:
 
-```python -m training.preprocess 
+```
+   python -m training.preprocess 
              --working_dir <path_to_local_working_dir> # Path to local working dir, optional, 
                                                        # you could use it for local development
              --source <path_to_local_source_dir>       # Path to local source dir, optional, 
