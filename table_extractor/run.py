@@ -4,7 +4,7 @@ import os
 import sys
 from pathlib import Path
 from typing import Dict
-
+from smart_open import open
 import boto3
 import botocore
 import click

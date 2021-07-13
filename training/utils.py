@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 import logging
 from typing import Union
+from smart_open import open
 
 import boto3
 import botocore
@@ -74,3 +75,34 @@ def download_model_from_path(model_file_path, output_path):
         with open(output_path, 'wb') \
                 as model_file:
             model_file.write(remote_model_file.read())
+
+
+def upload_dir_to_s3(local_directory, bucket, destination):
+    s3 = boto3.client('s3')
+    for root, dirs, files in os.walk(local_directory):
+        for filename in files:
+            local_path = os.path.join(root, filename)
+            relative_path = os.path.relpath(local_path, local_directory)
+            s3_path = os.path.join(destination, relative_path)
+            LOGGER.debug("Uploading %s..." % s3_path)
+            s3.upload_file(local_path, bucket, s3_path)
+
+
+def download_s3_folder(bucket_name, s3_folder, local_dir=None):
+    """
+    Download the contents of a folder directory
+    Args:
+        bucket_name: the name of the s3 bucket
+        s3_folder: the folder path in the s3 bucket
+        local_dir: a relative or absolute directory path in the local file system
+    """
+    s3 = boto3.client('s3')
+    bucket = s3.Bucket(bucket_name)
+    for obj in bucket.objects.filter(Prefix=s3_folder):
+        target = obj.key if local_dir is None \
+            else os.path.join(local_dir, os.path.relpath(obj.key, s3_folder))
+        if not os.path.exists(os.path.dirname(target)):
+            os.makedirs(os.path.dirname(target))
+        if obj.key[-1] == '/':
+            continue
+        bucket.download_file(obj.key, target)
