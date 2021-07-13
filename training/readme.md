@@ -2,9 +2,18 @@
 
 To run preprocess for training use this:
 
-```python -m training.preprocess <source pdfs and structure path> <output path> --verbose=True```
+```python -m training.preprocess 
+             --working_dir <path_to_local_working_dir> # Path to local working dir, optional, 
+                                                       # you could use it for local development
+             --source <path_to_local_source_dir>       # Path to local source dir, optional, 
+                                                       # you could use it for local development
+             --s3_bucket <s3_bucket>                   # s3 bucket for source and processed data
+             --s3_source_folder <source_folder_on_s3>  # s3 folder in that bucket for source data
+             --s3_target_folder <target_folder_on_s3>  # s3 folder where to store results of processed data
+             --verbose=True
+```
 
-Source directory should contain two dirs ```pdfs``` and ```json```
+```source``` directory or ```s3_source_folder``` should contain two dirs ```pdfs``` and ```json```
 
 **pdfs** should contain source pdfs for training
 
@@ -12,7 +21,12 @@ Source directory should contain two dirs ```pdfs``` and ```json```
 Preprocess pipeline expects json in BadgerDoc returnable format. 
 We expect that all BadgerDoc results will be processed manually to correct possible mistakes
 
-```output dir``` will contain debug information for each pdf and **ttv** directory with prepared test train validation splits for training
+```working_dir``` will contain debug information for each pdf and **ttv** directory with prepared test train validation splits for training
+
+if ```s3_bucket``` and ```s3_target_folder``` were provided ```working_dir``` content will be uploaded to that folder on s3
+
+! To use AWS S3 support you should provide all ```s3_bucket```, ```s3_source_folder``` and ```s3_target_folder```, this way you could avoid using local dirs, otherwise you could skip options with s3 to use local development
+
 
 ! Before start inference check annotations in ```draw_ann``` directory for each pdf located in ```<output_dir>/pdfs/<pdf_name>/draw_ann```.
 If any errors occurs - try to fix annotations in ttv directory with [coco annotator](https://github.com/jsbroks/coco-annotator) or any other annotation tool

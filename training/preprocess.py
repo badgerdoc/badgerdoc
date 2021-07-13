@@ -23,6 +23,7 @@ from table_extractor.poppler_service.poppler_text_extractor import extract_text,
     poppler_text_field_to_text_field
 from table_extractor.tesseract_service.tesseract_extractor import TextExtractor
 from table_extractor.visualization.table_visualizer import TableVisualizer
+from training.utils import download_s3_folder, upload_dir_to_s3
 
 LOGGING_FORMAT = "[%(asctime)s] - [%(name)s] - [%(levelname)s] - %(message)s"
 
@@ -505,28 +506,48 @@ def process_pdf(pdf_path: Path, json_path: Path, pdfs_preprocess_dir: Path):
     }
 
 
-
-
 @click.command()
-@click.argument("source")
-@click.argument("working_dir")
+@click.option("--working_dir", type=str)
+@click.option("--source", type=str)
+@click.option("--s3_bucket", type=str)
+@click.option("--s3_source_folder", type=str)
+@click.option("--s3_target_folder", type=str)
 @click.option("--verbose", type=bool)
-def preprocess(source: str, working_dir, verbose: bool):
-    matched = match_source_data(Path(source))
-    working_dir_path = Path(working_dir)
-    pdfs_preprocess_dir = working_dir_path / 'pdfs'
+def preprocess(working_dir: str, source: str, s3_bucket, s3_source_folder, s3_target_folder, verbose: bool):
     VISUALIZER = TableVisualizer(verbose)
+
+    if s3_bucket:
+        if not s3_source_folder or not s3_target_folder:
+            raise ValueError("s3_source_folder and s3_target_folder should be both provided if s3_bucket is defined")
+        if not source:
+            source = '/tmp/s3_source_download'
+        download_s3_folder(s3_bucket, s3_source_folder, source)
+    LOGGER.info(f"Resolved source folder {source}")
+
+    if not working_dir:
+        working_dir = '/tmp/preprocess_working'
+    LOGGER.info(f"Resolved working directory {working_dir}")
+    working_dir_path = Path(working_dir)
+
+    matched = match_source_data(Path(source))
+
+    pdfs_preprocess_dir = working_dir_path / 'pdfs'
     datasets = []
     for pair in matched:
         datasets.append(process_pdf(pair[0], pair[1], pdfs_preprocess_dir))
     full_dataset = working_dir_path / 'full'
     full_dataset.mkdir(parents=True, exist_ok=True)
     full_coco = merge_dataset(full_dataset, *datasets)
+
     with open(str((full_dataset / 'coco.json').absolute()), 'w') as f:
         f.write(json.dumps(full_coco))
+
     test_train_val_dir = working_dir_path / 'ttv'
     test_train_val_dir.mkdir(exist_ok=True, parents=True)
     test_train_val_split(full_coco, full_dataset / 'images', test_train_val_dir)
+
+    if s3_bucket:
+        upload_dir_to_s3(str(working_dir_path), s3_bucket, s3_target_folder)
 
 
 if __name__ == "__main__":
