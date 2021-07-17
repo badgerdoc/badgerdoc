@@ -8,7 +8,7 @@ RUN apt-get update && \
     apt-get install --yes locales build-essential libpoppler-cpp-dev python3-dev \
     python3-distutils poppler-utils libpoppler-qt5-1 poppler-data libleptonica-dev \
     libtesseract-dev tesseract-ocr pkg-config cmake wget curl \
-    default-jre && rm -rf /var/lib/apt/lists/*
+    default-jre vim && rm -rf /var/lib/apt/lists/*
 
 RUN echo "LC_ALL=en_US.UTF-8" >> /etc/environment && \
     echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen && \
