@@ -78,7 +78,13 @@ def download_model_from_path(model_file_path, output_path):
 
 
 def upload_dir_to_s3(local_directory, bucket, destination):
-    s3 = boto3.client('s3')
+    s3 = boto3.client(
+        's3',
+        region_name=AWS_REGION,
+        aws_access_key_id=AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+        endpoint_url=AWS_S3_ENDPOINT,
+    )
     for root, dirs, files in os.walk(local_directory):
         for filename in files:
             local_path = os.path.join(root, filename)
@@ -96,7 +102,13 @@ def download_s3_folder(bucket_name, s3_folder, local_dir=None):
         s3_folder: the folder path in the s3 bucket
         local_dir: a relative or absolute directory path in the local file system
     """
-    s3 = boto3.client('s3')
+    s3 = boto3.client(
+        's3',
+        region_name=AWS_REGION,
+        aws_access_key_id=AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+        endpoint_url=AWS_S3_ENDPOINT,
+    )
     bucket = s3.Bucket(bucket_name)
     for obj in bucket.objects.filter(Prefix=s3_folder):
         target = obj.key if local_dir is None \
