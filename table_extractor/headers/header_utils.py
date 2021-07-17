@@ -38,10 +38,10 @@ class HeaderChecker:
         self,
         cell_dictionary_path: Path = Path(
             __file__
-        ).parent.parent.parent.joinpath("language/cells_exc.json"),
+        ).parent.parent.parent.joinpath("language/cells.json"),
         header_dictionary_path: Path = Path(
             __file__
-        ).parent.parent.parent.joinpath("language/headers_exc.json"),
+        ).parent.parent.parent.joinpath("language/headers.json"),
     ):
         self.cell_path = cell_dictionary_path
         self.header_path = header_dictionary_path

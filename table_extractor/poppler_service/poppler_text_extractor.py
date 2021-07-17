@@ -76,10 +76,10 @@ def extract_text(pdf_file: Path) -> Dict[str, PopplerPage]:
                 x=page_rect.x,
                 y=page_rect.y,
                 height=page_rect.width
-                if page.orientation == page.Orientation.landscape
+                if page.orientation == page.Orientation.landscape or page.orientation == page.Orientation.seascape
                 else page_rect.height,
                 width=page_rect.height
-                if page.orientation == page.Orientation.landscape
+                if page.orientation == page.Orientation.landscape or page.orientation == page.Orientation.seascape
                 else page_rect.width,
             ),
             page_num=page_num,

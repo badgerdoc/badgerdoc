@@ -11,7 +11,7 @@ import click
 from decouple import config
 from openpyxl.reader.excel import SUPPORTED_FORMATS
 
-from excel_extractor import run_excel_job
+from excel_extractor.excel_extractor import run_excel_job
 from table_extractor.cascade_rcnn_service.inference import (
     CascadeRCNNInferenceService,
 )

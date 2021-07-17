@@ -39,4 +39,3 @@ Model on S3 could be used if `<model-file-path>` provided in format `s3://<bucke
 
 # Run excel extractor
 `python -m excel_extractor.excel_run  <path-to-excel> <output-path>`
-Note! To run excel extraction correctly, please set File -> Export as PDF -> Structure -> Whole Sheet Export

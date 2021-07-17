@@ -8,18 +8,12 @@ RUN apt-get update && \
     apt-get install --yes locales build-essential libpoppler-cpp-dev python3-dev \
     python3-distutils poppler-utils libpoppler-qt5-1 poppler-data libleptonica-dev \
     libtesseract-dev tesseract-ocr pkg-config cmake wget curl \
-    default-jre libreoffice-java-common && rm -rf /var/lib/apt/lists/*
+    default-jre vim && rm -rf /var/lib/apt/lists/*
 
 RUN echo "LC_ALL=en_US.UTF-8" >> /etc/environment && \
     echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen && \
     echo "LANG=en_US.UTF-8" > /etc/locale.conf && \
     locale-gen en_US.UTF-8
-
-RUN wget https://downloadarchive.documentfoundation.org/libreoffice/old/6.4.6.2/deb/x86_64/LibreOffice_6.4.6.2_Linux_x86-64_deb.tar.gz && \
-    tar -xzvf LibreOffice_6.4.6.2_Linux_x86-64_deb.tar.gz && \
-    cd LibreOffice_6.4.6.2_Linux_x86-64_deb/DEBS && \
-    dpkg -i *.deb && \
-    cd ../../
 
 RUN pip install poetry
 
@@ -42,21 +36,9 @@ RUN python -m nltk.downloader stopwords && \
     python -m nltk.downloader wordnet
 
 RUN mkdir /models && \
-    gdown "https://drive.google.com/uc?id=1YmO5O8kBPI9XZWASTWqP1Qh4skqQu7US" -O /models/3_cls_w18_e30.pth && \
-    wget --output-document /models/ch_ppocr_mobile_v2.0_det_infer.tar https://paddleocr.bj.bcebos.com/dygraph_v2.0/ch/ch_ppocr_mobile_v2.0_det_infer.tar && \
-    tar xf /models/ch_ppocr_mobile_v2.0_det_infer.tar -C /models && \
-    rm -rf /models/ch_ppocr_mobile_v2.0_det_infer.tar && \
-    wget --output-document /models/ch_ppocr_server_v2.0_det_infer.tar https://paddleocr.bj.bcebos.com/dygraph_v2.0/ch/ch_ppocr_server_v2.0_det_infer.tar && \
-    tar xf /models/ch_ppocr_server_v2.0_det_infer.tar -C /models && \
-    rm -rf /models/ch_ppocr_server_v2.0_det_infer.tar && \
-    wget --output-document /models/ch_ppocr_mobile_v2.0_cls_infer.tar https://paddleocr.bj.bcebos.com/dygraph_v2.0/ch/ch_ppocr_mobile_v2.0_cls_infer.tar && \
-    tar xf /models/ch_ppocr_mobile_v2.0_cls_infer.tar -C /models && \
-    rm -rf /models/ch_ppocr_mobile_v2.0_cls_infer.tar
+    gdown "https://drive.google.com/uc?id=1YmO5O8kBPI9XZWASTWqP1Qh4skqQu7US" -O /models/3_cls_w18_e30.pth
 
-ENV LIBRE_RUN="libreoffice6.4"
 ENV CASCADE_MODEL_PATH="/models/3_cls_w18_e30.pth"
-ENV PADDLE_MODEL_DIR="/models/ch_ppocr_server_v2.0_det_infer"
-ENV PADDLE_MODEL_CLS="/models/ch_ppocr_server_v2.0_cls_infer"
 
 COPY . /table-extractor
 ENV PYTHONUNBUFFERED=1
