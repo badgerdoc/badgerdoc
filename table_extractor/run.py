@@ -18,6 +18,8 @@ from table_extractor.cascade_rcnn_service.inference import (
 from table_extractor.pipeline.pipeline import PageProcessor, pdf_preprocess
 from table_extractor.visualization.table_visualizer import TableVisualizer
 
+EXCEL_EXTRA = ('.xls', '.csv')
+
 LOGGER = logging.getLogger(__name__)
 
 LOGGING_FORMAT = "[%(asctime)s] - [%(name)s] - [%(levelname)s] - %(message)s"
@@ -183,7 +185,7 @@ def run(input_path, output_path, model_path, verbose, paddle_on):
     extension = os.path.splitext(input_path)[-1].lower()
     if extension == ".pdf":
         run_sequentially_and_save(input_path, output_path, model_path, verbose, paddle_on)
-    elif extension in SUPPORTED_FORMATS:
+    elif extension in SUPPORTED_FORMATS or extension in EXCEL_EXTRA:
         run_excel_job(input_path, output_path)
     else:
         raise ValueError("Not supported file format")

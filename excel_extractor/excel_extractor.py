@@ -2,8 +2,10 @@ import json
 import logging
 import os
 import re
+import sys
 from pathlib import Path
 from typing import Dict, List, Tuple
+import subprocess
 
 import numpy as np
 from openpyxl import load_workbook
@@ -65,21 +67,27 @@ def create_copy_xlsx(orig_path: Path, out_path: Path, copy_name: str):
         raise ValueError("Can not copy file!")
 
 
-def create_pdf(xlsx_path: Path, out_path: Path):
+def convert_to_xlsx(xlsx_path: Path, out_path: Path):
     out_path.mkdir(exist_ok=True, parents=True)
-    exit_code = os.system(
-        f"{os.environ.get('LIBRE_RUN') if os.environ.get('LIBRE_RUN') else 'libreoffice'} --headless --convert-to pdf "
-        f"--outdir '{str(out_path.absolute())}' '{str(xlsx_path.absolute())}'"
+    cmd = [
+        f"{os.environ.get('LIBRE_RUN') if os.environ.get('LIBRE_RUN') else 'libreoffice'}",
+        "--convert-to",
+        "xlsx",
+        f"{str(xlsx_path.absolute())}",
+        "--outdir",
+        f"{str(out_path.absolute())}",
+        "--headless"
+    ]
+    LOGGER.info(f"Converting {xlsx_path}, command: {' '.join(cmd)}")
+    process = subprocess.Popen(
+        cmd,
+        stdout=sys.stdout,
+        stderr=sys.stderr
     )
-    if exit_code != 0:
+    process.communicate()
+    LOGGER.info(f"Exit code: {process.returncode}")
+    if process.returncode != 0:
         raise ValueError("Can not create PDF!")
-
-
-def prepare_for_inference(xlsx_path, out_dir: Path) -> Path:
-    create_copy_xlsx(xlsx_path, out_dir, "for_inference.xlsx")
-    clean_xlsx_images(out_dir / "for_inference.xlsx")
-    create_pdf(out_dir / "for_inference.xlsx", out_dir)
-    return out_dir / "for_inference.pdf"
 
 
 def softmax(array: Tuple[float]) -> List[float]:
@@ -514,10 +522,18 @@ def clean_xlsx_images(xlsx_path: Path):
 
 def run_excel_job(file: str, outpath: str):
     out_dir = Path(outpath) / Path(file).name
+    file = Path(file)
+    if file.name.endswith(".xls"):
+        convert_to_xlsx(file, out_dir)
+        file = out_dir / file.name.replace(".xls", ".xlsx")
 
-    create_copy_xlsx(Path(file), out_dir, "with_header.xlsx")
+    if file.name.endswith(".csv"):
+        convert_to_xlsx(file, out_dir)
+        file = out_dir / file.name.replace(".csv", ".xlsx")
+
+    create_copy_xlsx(file, out_dir, "with_header.xlsx")
 
     pages = match_inf_res(out_dir / "with_header.xlsx")
 
-    document = {"doc_name": str(Path(file).name), "pages": pages}
+    document = {"doc_name": str(file.name), "pages": pages}
     save_document(document, out_dir / "document.json")
