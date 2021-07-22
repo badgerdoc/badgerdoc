@@ -516,6 +516,7 @@ def clean_xlsx_images(xlsx_path: Path):
     workbook = load_workbook(str(xlsx_path.absolute()))
     for worksheet in workbook.worksheets:
         worksheet._images = []
+        worksheet._charts = []
     workbook.save(str(xlsx_path.absolute()))
     workbook.close()
 
@@ -532,6 +533,8 @@ def run_excel_job(file: str, outpath: str):
         file = out_dir / file.name.replace(".csv", ".xlsx")
 
     create_copy_xlsx(file, out_dir, "with_header.xlsx")
+
+    clean_xlsx_images(out_dir / "with_header.xlsx")
 
     pages = match_inf_res(out_dir / "with_header.xlsx")
 
