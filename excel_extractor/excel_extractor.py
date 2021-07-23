@@ -15,7 +15,7 @@ from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 from sklearn.cluster import DBSCAN
 
-from table_extractor.bordered_service.models import InferenceTable, Page
+from table_extractor.bordered_service.models import Page
 from table_extractor.headers.header_utils import HeaderChecker
 from table_extractor.model.table import (
     BorderBox,
@@ -312,7 +312,7 @@ def clust_tables(worksheet: Worksheet, last_row: int, last_col: int):
     for i in range(1, last_row + 1):
         for j in range(1, last_col + 1):
             cell = worksheet.cell(i, j)
-            if cell.value:
+            if cell.value != '' and cell.value is not None:
                 non_empty.append([i, j])
             else:
                 for m_range in m_ranges_val:
@@ -322,7 +322,7 @@ def clust_tables(worksheet: Worksheet, last_row: int, last_col: int):
 
     np_coords = np.array(non_empty)
 
-    clust = DBSCAN(eps=1, min_samples=2).fit(np_coords)
+    clust = DBSCAN(eps=1.5, min_samples=2).fit(np_coords)
 
     tables_cells = {}
     for cell_c, label in zip(non_empty, clust.labels_):
@@ -338,7 +338,29 @@ def clust_tables(worksheet: Worksheet, last_row: int, last_col: int):
         e_col = max([c[1] for c in cells])
         if e_row - s_row and e_col - s_col:
             tables_proposals.append((s_row, s_col, e_row, e_col))
-    return tables_proposals
+
+    tbl_prop = tables_proposals.copy()
+    tbls = []
+    while tbl_prop:
+        tbl = tbl_prop.pop()
+        table_int = []
+        s_row, s_col, e_row, e_col = tbl
+        for t_prop in tbl_prop:
+            p_s_row, p_s_col, p_e_row, p_e_col = t_prop
+            x_left = max(s_col, p_s_col)
+            y_top = max(s_row, p_s_row)
+            x_right = min(e_col, p_e_col)
+            y_bottom = min(e_row, p_e_row)
+            if x_right < x_left or y_bottom < y_top:
+                table_int.append((p_s_row, p_s_col, p_e_row, p_e_col))
+            else:
+                s_row = min(s_row, p_s_row)
+                s_col = min(s_col, p_s_col)
+                e_row = max(e_row, p_e_row)
+                e_col = max(e_col, p_e_col)
+        tbls.append((s_row, s_col, e_row, e_col))
+        tbl_prop = table_int
+    return tbls
 
 
 def extract_cell_value(ws_cell: WsCell):
@@ -363,6 +385,9 @@ def match_inf_res(xlsx_path: Path,):
     pages = []
     workbook = load_workbook(str(xlsx_path.absolute()), data_only=True)
     for page_num, worksheet in enumerate(workbook.worksheets):
+        LOGGER.info(f"Processing sheet: {worksheet.title}")
+        if worksheet.sheet_state != 'visible':
+            worksheet.sheet_state = 'visible'
         row_fill = {}
         for row_id in range(1, worksheet.max_row + 1):
             row_fill[row_id] = False
@@ -417,8 +442,11 @@ def match_inf_res(xlsx_path: Path,):
                 width += DEFAULT_WIDTH
         if height == 0 or width == 0:
             continue
+        LOGGER.info(f"Max row: {last_row}, max col: {last_col}")
 
         tables_proposals = clust_tables(worksheet, last_row, last_col)
+        LOGGER.info(f"Tables count: {len(tables_proposals)}")
+
         row_dim, col_dim = get_grid(worksheet, last_row, last_col)
 
         tables = [comp_table(
@@ -489,27 +517,6 @@ def match_inf_res(xlsx_path: Path,):
     workbook.save(str(xlsx_path.absolute()))
     workbook.close()
     return pages
-
-
-def crop_padding(
-    inf_results: List[Tuple[List[InferenceTable], List[Cell]]], padding: int
-):
-    for inf_tables, headers in inf_results:
-        for table in inf_tables:
-            table.bbox.top_left_x = table.bbox.top_left_x - padding
-            table.bbox.top_left_y = table.bbox.top_left_y - padding
-            table.bbox.bottom_right_x = table.bbox.bottom_right_x - padding
-            table.bbox.bottom_right_y = table.bbox.bottom_right_y - padding
-            for cell in table.tags:
-                cell.top_left_x = cell.top_left_x - padding
-                cell.top_left_y = cell.top_left_y - padding
-                cell.bottom_right_x = cell.bottom_right_x - padding
-                cell.bottom_right_y = cell.bottom_right_y - padding
-        for header in headers:
-            header.top_left_x = header.top_left_x - padding
-            header.top_left_y = header.top_left_y - padding
-            header.bottom_right_x = header.bottom_right_x - padding
-            header.bottom_right_y = header.bottom_right_y - padding
 
 
 def clean_xlsx_images(xlsx_path: Path):
