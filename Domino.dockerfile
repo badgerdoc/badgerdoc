@@ -5,7 +5,7 @@ RUN apt-get install apt-transport-https && \
 RUN apt-get update && \
     apt-get install --yes locales build-essential libpoppler-cpp-dev python3-dev \
     python3-distutils poppler-utils libpoppler-qt5-1 poppler-data libleptonica-dev \
-    libtesseract-dev tesseract-ocr pkg-config cmake wget curl \
+    libtesseract-dev tesseract-ocr pkg-config cmake wget curl libreoffice software-properties-common \
     default-jre libreoffice-java-common vim && rm -rf /var/lib/apt/lists/*
 
 RUN echo "LC_ALL=en_US.UTF-8" >> /etc/environment && \
@@ -13,17 +13,10 @@ RUN echo "LC_ALL=en_US.UTF-8" >> /etc/environment && \
     echo "LANG=en_US.UTF-8" > /etc/locale.conf && \
     locale-gen en_US.UTF-8
 
-RUN wget https://downloadarchive.documentfoundation.org/libreoffice/old/6.4.6.2/deb/x86_64/LibreOffice_6.4.6.2_Linux_x86-64_deb.tar.gz && \
-    tar -xzvf LibreOffice_6.4.6.2_Linux_x86-64_deb.tar.gz && \
-    cd LibreOffice_6.4.6.2_Linux_x86-64_deb/DEBS && \
-    dpkg -i *.deb && \
-    cd ../../
-
 RUN pip install poetry
 
 RUN mkdir mmcv && wget -P mmcv https://download.openmmlab.com/mmcv/dist/1.2.1/torch1.7.0/cpu/mmcv_full-1.2.1%2Btorch1.7.0%2Bcpu-cp38-cp38-manylinux1_x86_64.whl
 
-COPY poetry.lock /
 COPY pyproject.toml /
 COPY poetry.lock /
 
@@ -42,7 +35,6 @@ RUN python -m nltk.downloader stopwords && \
 RUN mkdir /models && \
     gdown "https://drive.google.com/uc?id=1YmO5O8kBPI9XZWASTWqP1Qh4skqQu7US" -O /models/3_cls_w18_e30.pth
 
-ENV LIBRE_RUN="libreoffice6.4"
 ENV CASCADE_MODEL_PATH="/models/3_cls_w18_e30.pth"
 
 COPY . /table-extractor
