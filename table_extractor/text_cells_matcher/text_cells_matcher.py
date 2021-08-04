@@ -14,23 +14,23 @@ def match_table_text(table: Table, text_boxes: List[TextField]):
     return in_table, out_of_table
 
 
-def match_cells_text(cells: List[Cell], text_box: TextField):
+def match_cells_text(cells: List[Cell], text_box: TextField, threshold=0.4):
     for cell in cells:
-        if text_box.bbox.box_is_inside_another(cell, threshold=0.4):
+        if text_box.bbox.box_is_inside_another(cell, threshold=threshold):
             cell.text_boxes.append(text_box)
             return True
     return False
 
 
 def match_cells_text_fields(
-    cells: List[Cell], text_boxes: List[TextField]
+    cells: List[Cell], text_boxes: List[TextField], threshold=0.4
 ) -> Tuple[int, List[TextField]]:
     count = 0
     for cell in cells:
         cell.text_boxes = []
     not_matched = []
     for t_box in text_boxes:
-        if match_cells_text(cells, t_box):
+        if match_cells_text(cells, t_box, threshold):
             count += 1
         else:
             not_matched.append(t_box)

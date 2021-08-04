@@ -1,6 +1,7 @@
 import logging
-from typing import Dict, List, Optional, Tuple
-
+from dataclasses import dataclass
+from typing import Dict, List, Optional, Tuple, Union
+import numpy as np
 from table_extractor.model.table import (
     BorderBox,
     Cell,
@@ -11,8 +12,22 @@ from table_extractor.model.table import (
     GridTable,
     StructuredTable,
 )
-
+from sklearn.cluster import DBSCAN
 LOGGER = logging.getLogger(__name__)
+
+
+@dataclass
+class MutableParameter:
+    param: int
+
+
+@dataclass
+class MutableBox:
+    orig: Union[BorderBox, Cell]
+    top_left_x: MutableParameter
+    top_left_y: MutableParameter
+    bottom_right_x: MutableParameter
+    bottom_right_y: MutableParameter
 
 
 def _match_cells_and_table(table: GridTable, cells: List[Cell]):
@@ -332,28 +347,25 @@ def reconstruct_table_from_grid(
         for c_idx, col in enumerate(grid_table.cols):
             if col.box_is_inside_another(cell, 0.0):
                 cols.append((c_idx, col))
-        if rows and cols:
+        matched_cells = []
+        for row in rows:
+            for col in cols:
+                if grid_cells_dict.get(row[0] * len(grid_table.cols) + col[0]):
+                    matched_cells.append(grid_cells_dict.pop(row[0] * len(grid_table.cols) + col[0]))
+        if matched_cells:
             linked_cells.append(
                 CellLinked(
-                    top_left_y=rows[0][1].top_left_y,
-                    top_left_x=cols[0][1].top_left_x,
-                    bottom_right_y=rows[-1][1].bottom_right_y,
-                    bottom_right_x=cols[-1][1].bottom_right_x,
-                    row=rows[0][0],
-                    col=cols[0][0],
-                    row_span=len(rows),
-                    col_span=len(cols),
+                    top_left_y=min([c.top_left_y for c in matched_cells]),
+                    top_left_x=min([c.top_left_x for c in matched_cells]),
+                    bottom_right_y=max([c.bottom_right_y for c in matched_cells]),
+                    bottom_right_x=max([c.bottom_right_x for c in matched_cells]),
+                    row=min([c.row for c in matched_cells]),
+                    col=min([c.col for c in matched_cells]),
+                    row_span=max([c.row for c in matched_cells]) - min([c.row for c in matched_cells]) + 1,
+                    col_span=max([c.col for c in matched_cells]) - min([c.col for c in matched_cells]) + 1,
                     text_boxes=cell.text_boxes,
                 )
             )
-            for row in rows:
-                for col in cols:
-                    if grid_cells_dict.get(
-                        row[0] * len(grid_table.cols) + col[0]
-                    ):
-                        _ = grid_cells_dict.pop(
-                            row[0] * len(grid_table.cols) + col[0]
-                        )
         else:
             not_matched.append(cell)
     for _, g_cell in grid_cells_dict.items():
@@ -389,6 +401,13 @@ def construct_table_from_cells(
 ) -> Optional[StructuredTable]:
     if not table_bbox or not image_shape or not cells or len(cells) < 2:
         return None
+    _ = _get_lines(cells, table_bbox)
+
+    table_bbox.bottom_right_x = table_bbox.bottom_right_x + 2
+    table_bbox.bottom_right_y = table_bbox.bottom_right_y + 2
+    table_bbox.top_left_x = table_bbox.top_left_x - 2
+    table_bbox.top_left_y = table_bbox.top_left_y - 2
+
     h_lines, v_lines = _find_lines(table_bbox, cells, image_shape)
     if not h_lines:
         h_lines = [table_bbox.top_left_y, table_bbox.bottom_right_y]
@@ -420,3 +439,61 @@ def construct_table_from_cells(
     if _:
         LOGGER.debug(f"Not matched: {len(_)}")
     return table
+
+
+def cluster(coords: List[MutableParameter], eps=10, min_samples=1):
+    if len(coords) < 3:
+        return coords
+    values = [coord.param for coord in coords]
+    np_coords = np.array(values).reshape(-1, 1)
+    clust = DBSCAN(eps=eps, min_samples=min_samples).fit(np_coords)
+    lines = {}
+    for coord, label in zip(coords, clust.labels_):
+        if label in lines:
+            lines[label].append(coord)
+        else:
+            lines[label] = [coord]
+    lines_p = []
+    for l_coords in lines.values():
+        avg = int(sum([coord.param for coord in l_coords]) / len(l_coords))
+        lines_p.append(avg)
+        for coord in l_coords:
+            coord.param = avg
+    return lines_p
+
+
+def to_mutable(bbox: BorderBox):
+    return MutableBox(
+        orig=bbox,
+        top_left_x=MutableParameter(bbox.top_left_x),
+        top_left_y=MutableParameter(bbox.top_left_y),
+        bottom_right_x=MutableParameter(bbox.bottom_right_x),
+        bottom_right_y=MutableParameter(bbox.bottom_right_y)
+    )
+
+
+def update_coords(bbox: MutableBox):
+    bbox.orig.top_left_x = bbox.top_left_x.param + 1
+    bbox.orig.top_left_y = bbox.top_left_y.param + 1
+    bbox.orig.bottom_right_x = bbox.bottom_right_x.param - 1
+    bbox.orig.bottom_right_y = bbox.bottom_right_y.param - 1
+
+
+def _get_lines(cells: List[Cell], table_bbox: BorderBox):
+    table_bbox_m = to_mutable(table_bbox)
+    cells_m = [to_mutable(cell) for cell in cells]
+
+    h_coords = [table_bbox_m.top_left_y, table_bbox_m.bottom_right_y]
+    v_coords = [table_bbox_m.top_left_x, table_bbox_m.bottom_right_x]
+    for cell in cells_m:
+        v_coords.extend([cell.top_left_x, cell.bottom_right_x])
+        h_coords.extend([cell.top_left_y, cell.bottom_right_y])
+
+    v_l = cluster(v_coords)
+    h_l = cluster(h_coords)
+
+    update_coords(table_bbox_m)
+    for cell in cells_m:
+        update_coords(cell)
+
+    return v_l, h_l
