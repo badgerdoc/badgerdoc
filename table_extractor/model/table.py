@@ -197,6 +197,36 @@ class StructuredTable:
             )
         ]
 
+    @property
+    def rows_dist(self):
+        rows = {}
+        for cell in self.cells:
+            if cell.row not in rows:
+                rows[cell.row] = [cell]
+            else:
+                rows[cell.row].append(cell)
+        return [
+            row
+            for num, row in sorted(
+                [(num, row) for num, row in rows.items()], key=lambda x: x[0]
+            )
+        ]
+
+    @property
+    def cols_dist(self):
+        cols = {}
+        for cell in self.cells:
+            if cell.col not in cols:
+                cols[cell.col] = [cell]
+            else:
+                cols[cell.col].append(cell)
+        return [
+            col
+            for num, col in sorted(
+                [(num, col) for num, col in cols.items()], key=lambda x: x[0]
+            )
+        ]
+
 
 def flatten(list_fo_lists: List[List]) -> List:
     res = []
@@ -223,24 +253,34 @@ class StructuredTableHeadered(StructuredTable):
         header_row_nums = set()
         for row in header:
             for cell in row:
-                header_row_nums.add(cell.row)
+                for row_num in range(cell.row, cell.row + cell.row_span):
+                    header_row_nums.add(row_num)
 
-        body_cells = [
+        body_cells = sorted([
             cell for cell in table.cells if cell.row not in header_row_nums
+        ], key=lambda c: (c.row, c.col))
+
+        header_rows = [
+            sorted(row, key=lambda c: (c.row, c.col)) for idx, row in enumerate(table.rows_dist) if idx in header_row_nums
         ]
 
         return StructuredTableHeadered(
-            bbox=table.bbox, cells=body_cells, header=header
+            bbox=table.bbox, cells=body_cells, header=header_rows
         )
 
     def actualize_header_with_cols(self, header_cols: List[List[CellLinked]]):
         header_col_nums = set()
         for col in header_cols:
             for cell in col:
-                header_col_nums.add(cell.col)
+                for col_num in range(cell.col, cell.col + cell.col_span):
+                    header_col_nums.add(col_num)
 
-        body_cells = [
+        body_cells = sorted([
             cell for cell in self.cells if cell.col not in header_col_nums
+        ], key=lambda c: (c.row, c.col))
+
+        header_cols = [
+            sorted(col, key=lambda c: (c.row, c.col)) for idx, col in enumerate(self.cols_dist) if idx in header_col_nums
         ]
 
         self.header.extend(header_cols)

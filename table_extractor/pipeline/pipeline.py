@@ -309,6 +309,15 @@ def softmax(array: Tuple[float]) -> List[float]:
     return (e_x / e_x.sum()).tolist()
 
 
+def rematch_text(tables: List[StructuredTable], text_fields: List[TextField]):
+    text_fields_to_match = text_fields
+    for table in tables:
+        in_table, text_fields_to_match = match_table_text(
+            table, text_fields_to_match
+        )
+        _ = match_cells_text_fields(table.cells, in_table, threshold=0.5)
+
+
 class PageProcessor:
     def __init__(
         self,
@@ -408,43 +417,34 @@ class PageProcessor:
 
         for cell in inf_table.tags:
             if cell.text_boxes:
-                cell.top_left_x = min(
+                cell.top_left_x = max(cell.top_left_x, min(
                     [text_box.bbox.top_left_x for text_box in cell.text_boxes]
-                    + [cell.top_left_x]
-                )
-                cell.top_left_y = min(
+                ))
+                cell.top_left_y = max(cell.top_left_y, min(
                     [text_box.bbox.top_left_y for text_box in cell.text_boxes]
-                    + [cell.top_left_y]
-                )
-                cell.bottom_right_x = max(
+                ))
+                cell.bottom_right_x = min(cell.bottom_right_x, max(
                     [
                         text_box.bbox.bottom_right_x
                         for text_box in cell.text_boxes
                     ]
-                    + [cell.bottom_right_x]
-                )
-                cell.bottom_right_y = max(
+                ))
+                cell.bottom_right_y = min(cell.bottom_right_y, max(
                     [
                         text_box.bbox.bottom_right_y
                         for text_box in cell.text_boxes
                     ]
-                    + [cell.bottom_right_y]
-                )
-
-        inf_table.tags.extend(
-            [text_to_cell(text_field) for text_field in merged_t_f]
-        )
+                ))
 
         if inf_table.tags:
             inf_table.bbox.top_left_y = min(inf_table.bbox.top_left_y,
-                                            min([cell.top_left_y for cell in inf_table.tags]) - 50,)
+                                            min([cell.top_left_y for cell in inf_table.tags]),)
             inf_table.bbox.top_left_x = min(inf_table.bbox.top_left_x,
-                                            min([cell.top_left_x for cell in inf_table.tags]) - 50,)
+                                            min([cell.top_left_x for cell in inf_table.tags]),)
             inf_table.bbox.bottom_right_y = max(inf_table.bbox.bottom_right_y,
-                                                max([cell.bottom_right_y for cell in inf_table.tags]) + 50,)
+                                                max([cell.bottom_right_y for cell in inf_table.tags]),)
             inf_table.bbox.bottom_right_x = max(inf_table.bbox.bottom_right_x,
-                                                max([cell.bottom_right_x for cell in inf_table.tags]) + 50,
-        )
+                                                max([cell.bottom_right_x for cell in inf_table.tags]),)
 
         self.visualizer.draw_object_and_save(
             img,
@@ -528,7 +528,7 @@ class PageProcessor:
                 image_path, draw=self.visualizer.should_visualize
             )
             logger.info("End bordered")
-            text_fields_to_match = text_fields
+            text_fields_to_match = text_fields.copy()
             bordered_tables = []
             if image.tables:
                 for bordered_table in image.tables:
@@ -588,6 +588,8 @@ class PageProcessor:
                 cell_header_scores,
                 output_path / "cells_header" / f"{page.page_num}.png",
             )
+
+            rematch_text(page.tables, text_fields)
 
             tables_with_header = []
             for table in page.tables:

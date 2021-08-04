@@ -179,7 +179,7 @@ def match_cells_and_tables(
     cells_stack = raw_cells.copy()
 
     def check_inside_and_put(inf_table: InferenceTable, inf_cell: BorderBox):
-        if inf_cell.box_is_inside_another(inf_table.bbox):
+        if inf_cell.box_is_inside_another(inf_table.bbox, 0.05):
             inf_table.tags.append(inf_cell)
             return True
         return False
@@ -212,6 +212,15 @@ def match_cells_and_tables(
                 not_matched_cells.append(i)
                 stack.remove(i)
         table.tags = filtered
+        if table.tags:
+            table.bbox.top_left_y = min(table.bbox.top_left_y,
+                                        min([cell.top_left_y for cell in table.tags]) - 10,)
+            table.bbox.top_left_x = min(table.bbox.top_left_x,
+                                        min([cell.top_left_x for cell in table.tags]) - 10,)
+            table.bbox.bottom_right_y = max(table.bbox.bottom_right_y,
+                                            max([cell.bottom_right_y for cell in table.tags]) + 10,)
+            table.bbox.bottom_right_x = max(table.bbox.bottom_right_x,
+                                            max([cell.bottom_right_x for cell in table.tags]) + 10,)
 
     return not_matched_cells
 
