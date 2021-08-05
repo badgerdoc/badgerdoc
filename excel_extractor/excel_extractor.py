@@ -3,6 +3,7 @@ import logging
 import os
 import re
 import sys
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Tuple
 import subprocess
@@ -50,6 +51,40 @@ LOGGER = logging.getLogger(__name__)
 HEADER_FILL = PatternFill(
     start_color="AA00CC", end_color="AA00CC", fill_type="solid"
 )
+
+
+@dataclass
+class StructuredTableHeaderedEx(StructuredTableHeadered):
+
+    @staticmethod
+    def from_structured_and_rows(
+            table: StructuredTable, header: List[List[CellLinked]]
+    ):
+        header_row_nums = set()
+        for row in header:
+            for cell in row:
+                header_row_nums.add(cell.row)
+
+        body_cells = [
+            cell for cell in table.cells if cell.row not in header_row_nums
+        ]
+
+        return StructuredTableHeaderedEx(
+            bbox=table.bbox, cells=body_cells, header=header
+        )
+
+    def actualize_header_with_cols(self, header_cols: List[List[CellLinked]]):
+        header_col_nums = set()
+        for col in header_cols:
+            for cell in col:
+                header_col_nums.add(cell.col)
+
+        body_cells = [
+            cell for cell in self.cells if cell.col not in header_col_nums
+        ]
+
+        self.header.extend(header_cols)
+        self.cells = body_cells
 
 
 def save_document(document: Dict, path: Path):
@@ -155,7 +190,7 @@ def get_headers_using_structured(
     table: StructuredTable
 ) -> StructuredTableHeadered:
     header_rows = create_header(table.rows, 4)
-    table_with_header = StructuredTableHeadered.from_structured_and_rows(
+    table_with_header = StructuredTableHeaderedEx.from_structured_and_rows(
         table, header_rows
     )
     header_cols = create_header(table.cols, 1)
