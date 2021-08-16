@@ -659,3 +659,74 @@ def align(annotations):
             holders_to_bbox(cell)
 
     return tables + cells + heades
+
+
+def process_ftn(img_meta, img_id, img_path, img_dr_p):
+    pdf_page = PdfFileReader(open(f'/home/ilia_kiselev/Downloads/{img_meta["filepath"]}', 'rb')).getPage(0)
+    pdf_shape = pdf_page.mediaBox
+    pdf_height = float(pdf_shape[3]-pdf_shape[1])
+    pdf_width = float(pdf_shape[2]-pdf_shape[0])
+    converted_images = convert_from_path(f'/home/ilia_kiselev/Downloads/{img_meta["filepath"]}', dpi=120)
+    img_conv = np.array(converted_images[0])
+
+    img_m = {
+        'file_name': img_meta["filepath"].replace('/', '_').replace('.pdf', '.png'),
+        'id': img_id,
+        'width': img_conv.shape[1],
+        'height': img_conv.shape[0]
+    }
+
+    cv2.imwrite(f'{img_path}/{img_m["file_name"]}', img_conv)
+
+    img_dr = img_conv.copy()
+
+    scale_x = img_conv.shape[1] / pdf_width
+    scale_y = img_conv.shape[0] / pdf_height
+    instances = []
+    for idx, ann in enumerate(img_meta['annotations']):
+        bbox = ann['bbox']
+        box = [int(coord) for coord in [bbox[0] * scale_x, (float(pdf_height) - bbox[1]) * scale_y, bbox[2] * scale_x,
+                                        (float(pdf_height) - bbox[3]) * scale_y]]
+        cv2.rectangle(img_dr, (box[0], box[1]), (box[2], box[3]), (0,255,0), 1)
+        x1, y1, x2, y2 = box
+        segm_box = [x1, y1, x2, y1, x2, y2, x1, y2]
+        instances.append(
+            {
+                'id': img_id * 100000 + idx,
+                'image_id': img_id,
+                'category_id': ann['category_id'],
+                'bbox': [x1, y1, x2 - x1, y2 - y1],
+                'segmentation': [segm_box],
+                'area': (x2 - x1) * (y2 - y1),
+                'score': 1.0,
+                "iscrowd": False,
+                "isbbox": True,
+                "color": '#e17282',
+                "keypoints": [],
+                "metadata": {},
+            }
+        )
+    cv2.imwrite(f'{img_dr_p}/{img_m["file_name"]}', img_dr)
+    return img_m, instances
+
+
+im_p = Path('/home/ilia_kiselev/Downloads/fin_tab_explore/images_ok')
+im_p.mkdir(parents=True, exist_ok=True)
+im_dr = Path('/home/ilia_kiselev/Downloads/fin_tab_explore/draw_ok')
+im_dr.mkdir(parents=True, exist_ok=True)
+coco = {}
+for idx, good_im in tqdm(enumerate(good_imgs)):
+    im_meta, anns = process_ftn(
+        good_im,
+        idx,
+        str(im_p.absolute()),
+        str(im_dr.absolute())
+    )
+    if 'images' in coco:
+        coco['images'].append(im_meta)
+    else:
+        coco['images'] = [im_meta]
+    if 'annotations' in coco:
+        coco['annotations'].extend(anns)
+    else:
+        coco['annotations'] = anns
