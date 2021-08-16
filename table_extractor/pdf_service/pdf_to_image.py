@@ -5,12 +5,12 @@ from pathlib import Path
 from pdf2image import convert_from_path
 
 logger = logging.getLogger(__name__)
-DPI = 400
+DPI = 120
 
 
 # ToDo: Implement also with pagination
 def convert_pdf_to_images(
-    pdf_file: Path, out_dir: Path, already_incl: bool = False
+    pdf_file: Path, out_dir: Path, already_incl: bool = False, dpi=DPI
 ) -> Path:
     logger.info("Start pdf to png conversion for %s", str(pdf_file.name))
     out_dir = (
@@ -21,7 +21,7 @@ def convert_pdf_to_images(
     out_dir.mkdir(parents=True, exist_ok=True)
     pages = convert_from_path(
         pdf_file,
-        dpi=DPI,
+        dpi=dpi,
         output_folder=str(out_dir.absolute()),
         paths_only=True,
         fmt="png",

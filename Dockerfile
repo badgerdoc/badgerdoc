@@ -35,7 +35,7 @@ RUN python -m nltk.downloader stopwords && \
     python -m nltk.downloader wordnet
 
 RUN mkdir /models && \
-    gdown "https://drive.google.com/uc?id=1YmO5O8kBPI9XZWASTWqP1Qh4skqQu7US" -O /models/3_cls_w18_e30.pth
+    gdown "https://drive.google.com/uc?id=1Nn0g0gIupW6xIpBZnwHRcyEDq9j6AtX2" -O /models/3_cls_w18_e30.pth
 
 ENV CASCADE_MODEL_PATH="/models/3_cls_w18_e30.pth"
 
