@@ -5,4 +5,4 @@ services:
 
 before_install:
   - docker build -t badgerdoc .
-  - docker ps -a
+  - docker images
