@@ -1,4 +1,13 @@
 dist: focal
+addons:
+  apt:
+    sources:
+      - sourceline: 'ppa:chris-lea/redis-server'
+    packages:
+    - tesseract-ocr
+    - libtesseract-dev
+    - libleptonica-dev
+
 language: python
 
 services:
