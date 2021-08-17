@@ -1,10 +1,8 @@
-FROM python:3.8
+FROM python:3.8.10-buster
 
 RUN apt-get install apt-transport-https && \
     echo "deb https://notesalexp.org/tesseract-ocr/buster/ buster main" >> /etc/apt/sources.list && \
     wget -O - https://notesalexp.org/debian/alexp_key.asc | apt-key add -
-
-RUN cat /etc/apt/sources.list
 
 RUN apt-get update && \
     apt-get -f install --yes locales build-essential libpoppler-cpp-dev python3-dev \
