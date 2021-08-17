@@ -2,7 +2,7 @@ dist: focal
 addons:
   apt:
     sources:
-      - sourceline: 'ppa:chris-lea/redis-server'
+      - sourceline: 'deb https://notesalexp.org/tesseract-ocr/buster/ buster main'
     packages:
     - tesseract-ocr
     - libtesseract-dev
