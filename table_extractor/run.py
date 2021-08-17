@@ -28,13 +28,13 @@ CASCADE_CONFIG_PATH = (
     Path(os.environ.get("CASCADE_CONFIG_PATH"))
     if os.environ.get("CASCADE_CONFIG_PATH")
     else Path(__file__).parent.parent.joinpath(
-        "configs/config_3_cls_w18.py"
+        "configs/swin_config.py"
     )
 )
 CASCADE_MODEL_PATH = (
     Path(os.environ.get("CASCADE_MODEL_PATH"))
     if os.environ.get("CASCADE_MODEL_PATH")
-    else Path(__file__).parent.parent.joinpath("models/3_cls_w18_e30.pth")
+    else Path(__file__).parent.parent.joinpath("models/epoch_20.pth")
 )
 PADDLE_MODEL_DIR = (
     Path(os.environ.get("PADDLE_MODEL_DIR"))

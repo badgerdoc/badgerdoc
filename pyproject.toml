@@ -60,7 +60,7 @@ python-poppler = "0.2.2"
 tesserocr = "2.5.1"
 nltk = "3.5"
 openpyxl = "3.0.6"
-mmcv-full = {path = "mmcv/mmcv_full-1.2.1+torch1.7.0+cpu-cp38-cp38-manylinux1_x86_64.whl"}
+mmcv-full = {path = "mmcv/mmcv_full-1.2.4+torch1.7.0+cpu-cp38-cp38-manylinux1_x86_64.whl"}
 scikit-learn = "0.24.1"
 smart-open = "^5.1.0"
 python-decouple = "^3.4"
