@@ -1,11 +1,11 @@
-FROM python:3.8
+FROM python:3.8.10-buster
 
 RUN apt-get install apt-transport-https && \
     echo "deb https://notesalexp.org/tesseract-ocr/buster/ buster main" >> /etc/apt/sources.list && \
     wget -O - https://notesalexp.org/debian/alexp_key.asc | apt-key add -
 
 RUN apt-get update && \
-    apt-get install --yes locales build-essential libpoppler-cpp-dev python3-dev \
+    apt-get -f install --yes locales build-essential libpoppler-cpp-dev python3-dev \
     python3-distutils poppler-utils libpoppler-qt5-1 poppler-data libleptonica-dev \
     libtesseract-dev tesseract-ocr pkg-config cmake wget curl libreoffice software-properties-common \
     default-jre libreoffice-java-common vim && rm -rf /var/lib/apt/lists/*

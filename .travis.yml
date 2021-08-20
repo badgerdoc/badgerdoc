@@ -1,0 +1,19 @@
+dist: focal
+addons:
+  apt:
+    sources:
+      - sourceline: 'deb https://notesalexp.org/tesseract-ocr/buster/ buster main'
+    packages:
+    - tesseract-ocr
+    - libtesseract-dev
+    - libleptonica-dev
+
+language: python
+
+services:
+  - docker
+
+before_install:
+  - cat /etc/apt/sources.list
+  - docker build -t badgerdoc .
+  - docker images
