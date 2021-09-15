@@ -310,3 +310,4 @@ paddle_detector/inference/*
 cases75.txt
 /.train/
 /.virt/
+/.swin/

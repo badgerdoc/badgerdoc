@@ -24,6 +24,7 @@ def convert_pdf_to_images(
         dpi=dpi,
         output_folder=str(out_dir.absolute()),
         paths_only=True,
+        thread_count=6,
         fmt="png",
     )
     for i, page in enumerate(pages):

@@ -441,7 +441,7 @@ def construct_table_from_cells(
     return table
 
 
-def cluster(coords: List[MutableParameter], eps=10, min_samples=1):
+def cluster(coords: List[MutableParameter], eps=3, min_samples=1):
     if len(coords) < 3:
         return coords
     values = [coord.param for coord in coords]
