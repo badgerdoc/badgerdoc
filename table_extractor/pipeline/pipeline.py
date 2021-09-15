@@ -156,24 +156,35 @@ def merge_closest_text_fields(text_fields: List[TextField]):
 
 def pdf_preprocess(
     pdf_path: Path, output_path: Path
-) -> Tuple[Path, Dict[str, PopplerPage]]:
+) -> Tuple[Path, Dict[str, PopplerPage], Path]:
     images_path = convert_pdf_to_images(pdf_path, output_path)
+    images_path_400 = convert_pdf_to_images(pdf_path,
+                                            output_path / pdf_path.name / 'images_400',
+                                            already_incl=True,
+                                            dpi=400)
     poppler_pages = extract_text(pdf_path)
-    return images_path, poppler_pages
+    return images_path, poppler_pages, images_path_400
 
 
-def actualize_text(table: StructuredTable, image_path: Path, img_shape):
-    with TextExtractor(str(image_path.absolute())) as te:
-        for cell in table.cells:
+def actualize_text(table: StructuredTable, image_path_400: Path, img_shape):
+    img_400 = cv2.imread(str(image_path_400.absolute()))
+    x_scale = img_400.shape[1] / img_shape[1]
+    y_scale = img_400.shape[0] / img_shape[0]
+    cells = table.all_cells if isinstance(table, StructuredTableHeadered) else table.cells
+    with TextExtractor(str(image_path_400.absolute())) as te:
+        for cell in cells:
             if not cell.text_boxes or any(
                 [not text_box.text for text_box in cell.text_boxes]
             ):
-                cell.top_left_x = max(0, cell.top_left_x)
-                cell.top_left_y = max(0, cell.top_left_y)
-                cell.bottom_right_x = min(img_shape[1], cell.bottom_right_x)
-                cell.bottom_right_y = min(img_shape[0], cell.bottom_right_y)
+                top_left_x = max(0, cell.top_left_x)
+                top_left_y = max(0, cell.top_left_y)
+                bottom_right_x = min(img_shape[1], cell.bottom_right_x)
+                bottom_right_y = min(img_shape[0], cell.bottom_right_y)
                 text, _ = te.extract(
-                    cell.top_left_x, cell.top_left_y, cell.width, cell.height
+                    int(top_left_x * x_scale) + 4,
+                    int(top_left_y * y_scale) + 4,
+                    int((bottom_right_x - top_left_x) * x_scale) - 4,
+                    int((bottom_right_y - top_left_y) * y_scale) - 4
                 )
                 cell.text_boxes.append(TextField(bbox=cell, text=text))
 
@@ -309,13 +320,14 @@ def softmax(array: Tuple[float]) -> List[float]:
     return (e_x / e_x.sum()).tolist()
 
 
-def rematch_text(tables: List[StructuredTable], text_fields: List[TextField]):
+def rematch_text(tables: List[StructuredTable], text_fields: List[TextField], image_path_400, img_shape):
     text_fields_to_match = text_fields
     for table in tables:
         in_table, text_fields_to_match = match_table_text(
             table, text_fields_to_match
         )
         _ = match_cells_text_fields(table.cells, in_table, threshold=0.5)
+        actualize_text(table, image_path_400, img_shape)
 
 
 class PageProcessor:
@@ -475,16 +487,17 @@ class PageProcessor:
         return text_fields
 
     def process_pages(
-        self, images_path: Path, poppler_pages: Dict[str, PopplerPage]
+        self, images_path: Path, poppler_pages: Dict[str, PopplerPage], images_path_400: Path
     ) -> List:
         pages = []
-        for image_path in sorted(images_path.glob("*.png")):
+        for image_path, image_path_400 in zip(sorted(images_path.glob("*.png")), sorted(images_path_400.glob("*.png"))):
             try:
                 pages.append(
                     self.process_page(
                         image_path,
                         images_path.parent,
                         poppler_pages[image_path.name.split(".")[0]],
+                        image_path_400
                     )
                 )
             except Exception as e:
@@ -494,7 +507,7 @@ class PageProcessor:
         return pages
 
     def process_page(
-        self, image_path: Path, output_path: Path, poppler_page
+        self, image_path: Path, output_path: Path, poppler_page, image_path_400: Path
     ) -> Dict[str, Any]:
         img = cv2.imread(str(image_path.absolute()))
         page = Page(
@@ -574,7 +587,7 @@ class PageProcessor:
                     page.tables.append(struct)
 
             for table in page.tables:
-                actualize_text(table, image_path, img.shape[:2])
+                actualize_text(table, image_path_400, img.shape[:2])
 
             # TODO: Headers should be created only once
             cell_header_scores = []
@@ -589,7 +602,7 @@ class PageProcessor:
                 output_path / "cells_header" / f"{page.page_num}.png",
             )
 
-            rematch_text(page.tables, text_fields)
+            rematch_text(page.tables, text_fields, image_path_400, img.shape[:2])
 
             tables_with_header = []
             for table in page.tables:

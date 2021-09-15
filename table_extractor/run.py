@@ -149,8 +149,8 @@ def run_pipeline_sequentially(
     page_processor = PageProcessor(
         cascade_rcnn_detector, visualizer, paddle_on
     )
-    images_path, poppler_pages = pdf_preprocess(pdf_path, output_dir)
-    pages = page_processor.process_pages(images_path, poppler_pages)
+    images_path, poppler_pages, images_path_400 = pdf_preprocess(pdf_path, output_dir)
+    pages = page_processor.process_pages(images_path, poppler_pages, images_path_400)
     document = {"doc_name": str(pdf_path.name), "pages": pages}
 
     return document
