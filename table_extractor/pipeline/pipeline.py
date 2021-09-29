@@ -205,6 +205,83 @@ def semi_border_to_struct(
     return structured_table
 
 
+def is_on_same_line(box_a: BorderBox, box_b: BorderBox, min_y_overlap_ratio=0.8):
+    a_y_min = box_a.top_left_y
+    b_y_min = box_b.top_left_y
+    a_y_max = box_a.bottom_right_y
+    b_y_max = box_b.bottom_right_y
+
+    # Make sure that box a is always the box above another
+    if a_y_min > b_y_min:
+        a_y_min, b_y_min = b_y_min, a_y_min
+        a_y_max, b_y_max = b_y_max, a_y_max
+
+    if b_y_min <= a_y_max:
+        if min_y_overlap_ratio is not None:
+            sorted_y = sorted([b_y_min, b_y_max, a_y_max])
+            overlap = sorted_y[1] - sorted_y[0]
+            min_a_overlap = (a_y_max - a_y_min) * min_y_overlap_ratio
+            min_b_overlap = (b_y_max - b_y_min) * min_y_overlap_ratio
+            return overlap >= min_a_overlap or \
+                   overlap >= min_b_overlap
+        else:
+            return True
+    return False
+
+
+def merge_cell_content(boxes: List[TextField], max_x_dist=10, min_y_overlap_ratio=0.8):
+    if len(boxes) < 1:
+        return ''
+
+    if len(boxes) == 1:
+        return boxes[0].text
+
+    text_all = []
+
+    # sort groups based on the x_min coordinate of boxes
+    x_sorted_boxes = sorted(boxes, key=lambda x: x.bbox.top_left_x)
+    # store indexes of boxes which are already parts of other lines
+    skip_idxs = set()
+
+    i = 0
+    # locate lines of boxes starting from the leftmost one
+    for i in range(len(x_sorted_boxes)):
+        if i in skip_idxs:
+            continue
+        # the rightmost box in the current line
+        rightmost_box_idx = i
+        line = [rightmost_box_idx]
+        for j in range(i + 1, len(x_sorted_boxes)):
+            if j in skip_idxs:
+                continue
+            if is_on_same_line(x_sorted_boxes[rightmost_box_idx].bbox,
+                               x_sorted_boxes[j].bbox, min_y_overlap_ratio):
+                line.append(j)
+                skip_idxs.add(j)
+                rightmost_box_idx = j
+
+        # split line into lines if the distance between two neighboring
+        # sub-lines' is greater than max_x_dist
+        lines = []
+        line_idx = 0
+        lines.append([line[0]])
+        for k in range(1, len(line)):
+            curr_box = x_sorted_boxes[line[k]]
+            prev_box = x_sorted_boxes[line[k - 1]]
+            dist = curr_box.bbox.top_left_x - prev_box.bbox.bottom_right_x
+            if dist > max_x_dist:
+                line_idx += 1
+                lines.append([])
+            lines[line_idx].append(line[k])
+
+        for box_group in lines:
+            text = ' '.join(
+                [x_sorted_boxes[idx].text for idx in box_group])
+            text_all.append(text)
+
+    return '\n'.join(text_all)
+
+
 def bordered_to_struct(bordered_table: Table) -> StructuredTable:
     v_lines = []
     for col in bordered_table.cols:
@@ -243,15 +320,7 @@ def cell_to_dict(cell: CellLinked):
             "height": cell.height,
             "width": cell.width,
         },
-        "text": " ".join(
-            [
-                field.text
-                for field in sorted(
-                    cell.text_boxes,
-                    key=lambda x: (x.bbox.top_left_y, x.bbox.top_left_x),
-                )
-            ]
-        ),
+        "text": merge_cell_content(cell.text_boxes),
     }
 
 
@@ -347,7 +416,7 @@ class PageProcessor:
     ) -> float:
         confidences = [0.0]
         for header in inf_headers:
-            if cell.box_is_inside_another(header):
+            if cell.box_is_inside_another(header, 0.4):
                 confidences.append(header.confidence)
         return max(confidences)
 
