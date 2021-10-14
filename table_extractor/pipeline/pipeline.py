@@ -6,12 +6,12 @@ from typing import Any, Dict, List, Tuple, Union
 import cv2
 import numpy as np
 from tesserocr import PSM
+from Levenshtein import distance as levenshtein_distance
 
 from table_extractor.bordered_service.bordered_tables_detection import (
     detect_tables_on_page,
 )
 from table_extractor.bordered_service.models import InferenceTable, Page
-from table_extractor.borderless_service.semi_bordered import semi_bordered
 from table_extractor.cascade_rcnn_service.inference import (
     CascadeRCNNInferenceService,
 )
@@ -444,6 +444,14 @@ class PageProcessor:
         # return len(headers) > (len(series) / 5) if len(series) > thresh else len(headers) > (len(series) / 2)
         return len(headers) > (len(series) / 2)
 
+    @staticmethod
+    def is_num(value):
+        try:
+            float(value)
+            return True
+        except ValueError:
+            return False
+
     def create_header(
         self,
         series: List[List[CellLinked]],
@@ -476,9 +484,41 @@ class PageProcessor:
             header = []
 
         if len(header) > 0.75 * len(series):
-            with open("cases75.txt", "a") as f:
-                f.write(str(series) + "\n")
             header = []
+
+        if header_limit > 1:
+            contents = [" ".join([merge_cell_content(cell.text_boxes) for cell in line]) for line in series]
+            l_dists = []
+            last = contents[0]
+            for line in contents[1:header_limit]:
+                dist = levenshtein_distance(line, last)
+                l_dists.append(dist)
+                last = line
+            index_max_lev = np.argmax(l_dists) +1
+
+            num_count = [len([val for val in line if self.is_num(merge_cell_content(val.text_boxes))]) for line in series]
+            percentile_25 = np.percentile(num_count, 10)
+            idis = []
+            for idx, val in enumerate(num_count[:header_limit]):
+                if val < percentile_25.astype(float):
+                    idis.append(idx)
+            if not idis and not percentile_25:
+                # n_dst = []
+                # last = num_count[0]
+                # for val in num_count[1:header_limit]:
+                #     dst = val - last
+                #     n_dst.append(dst)
+                #     last = val
+                # index_max_num = np.argmax(n_dst) + 1
+                index_max_num = index_max_lev
+            else:
+                index_max_num = max(idis)+1
+
+            if not header:
+                header = series[:index_max_num]
+
+            if idis and percentile_25:
+                header = series[:index_max_num]
 
         return header
 
@@ -494,8 +534,6 @@ class PageProcessor:
         image_shape: Tuple[int, int],
         image_path: Path,
     ) -> StructuredTable:
-        merged_t_f = merge_closest_text_fields(not_matched_text)
-
         for cell in inf_table.tags:
             if cell.text_boxes:
                 cell.top_left_x = max(cell.top_left_x, min(
@@ -658,6 +696,7 @@ class PageProcessor:
             for table in page.tables:
                 actualize_text(table, image_path_400, img.shape[:2])
 
+            rematch_text(page.tables, text_fields, image_path_400, img.shape[:2])
             # TODO: Headers should be created only once
             cell_header_scores = []
             for table in page.tables:
@@ -669,10 +708,7 @@ class PageProcessor:
                 img,
                 cell_header_scores,
                 output_path / "cells_header" / f"{page.page_num}.png",
-            )
-
-            rematch_text(page.tables, text_fields, image_path_400, img.shape[:2])
-
+                )
             tables_with_header = []
             for table in page.tables:
                 header_rows = self.create_header(table.rows, headers, 5)
@@ -685,6 +721,7 @@ class PageProcessor:
                 # TODO: Cells should be actualized only once
                 table_with_header.actualize_header_with_cols(header_cols)
                 tables_with_header.append(table_with_header)
+
             page.tables = tables_with_header
 
             self.visualizer.draw_object_and_save(

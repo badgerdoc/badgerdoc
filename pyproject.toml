@@ -65,6 +65,7 @@ scikit-learn = "0.24.1"
 smart-open = "^5.1.0"
 python-decouple = "^3.4"
 boto3 = "^1.17.107"
+python-Levenshtein = "^0.12.2"
 
 [tool.poetry.dev-dependencies]
 ipython = "^7.23.1"
