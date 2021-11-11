@@ -1,17 +1,19 @@
 import json
 import logging
+import re
+from functools import reduce
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Union
 
 import cv2
 import numpy as np
 from tesserocr import PSM
+from Levenshtein import distance as levenshtein_distance
 
 from table_extractor.bordered_service.bordered_tables_detection import (
     detect_tables_on_page,
 )
 from table_extractor.bordered_service.models import InferenceTable, Page
-from table_extractor.borderless_service.semi_bordered import semi_bordered
 from table_extractor.cascade_rcnn_service.inference import (
     CascadeRCNNInferenceService,
 )
@@ -205,6 +207,83 @@ def semi_border_to_struct(
     return structured_table
 
 
+def is_on_same_line(box_a: BorderBox, box_b: BorderBox, min_y_overlap_ratio=0.8):
+    a_y_min = box_a.top_left_y
+    b_y_min = box_b.top_left_y
+    a_y_max = box_a.bottom_right_y
+    b_y_max = box_b.bottom_right_y
+
+    # Make sure that box a is always the box above another
+    if a_y_min > b_y_min:
+        a_y_min, b_y_min = b_y_min, a_y_min
+        a_y_max, b_y_max = b_y_max, a_y_max
+
+    if b_y_min <= a_y_max:
+        if min_y_overlap_ratio is not None:
+            sorted_y = sorted([b_y_min, b_y_max, a_y_max])
+            overlap = sorted_y[1] - sorted_y[0]
+            min_a_overlap = (a_y_max - a_y_min) * min_y_overlap_ratio
+            min_b_overlap = (b_y_max - b_y_min) * min_y_overlap_ratio
+            return overlap >= min_a_overlap or \
+                   overlap >= min_b_overlap
+        else:
+            return True
+    return False
+
+
+def merge_cell_content(boxes: List[TextField], max_x_dist=10, min_y_overlap_ratio=0.8):
+    if len(boxes) < 1:
+        return ''
+
+    if len(boxes) == 1:
+        return boxes[0].text
+
+    text_all = []
+
+    # sort groups based on the x_min coordinate of boxes
+    x_sorted_boxes = sorted(boxes, key=lambda x: x.bbox.top_left_x)
+    # store indexes of boxes which are already parts of other lines
+    skip_idxs = set()
+
+    i = 0
+    # locate lines of boxes starting from the leftmost one
+    for i in range(len(x_sorted_boxes)):
+        if i in skip_idxs:
+            continue
+        # the rightmost box in the current line
+        rightmost_box_idx = i
+        line = [rightmost_box_idx]
+        for j in range(i + 1, len(x_sorted_boxes)):
+            if j in skip_idxs:
+                continue
+            if is_on_same_line(x_sorted_boxes[rightmost_box_idx].bbox,
+                               x_sorted_boxes[j].bbox, min_y_overlap_ratio):
+                line.append(j)
+                skip_idxs.add(j)
+                rightmost_box_idx = j
+
+        # split line into lines if the distance between two neighboring
+        # sub-lines' is greater than max_x_dist
+        lines = []
+        line_idx = 0
+        lines.append([line[0]])
+        for k in range(1, len(line)):
+            curr_box = x_sorted_boxes[line[k]]
+            prev_box = x_sorted_boxes[line[k - 1]]
+            dist = curr_box.bbox.top_left_x - prev_box.bbox.bottom_right_x
+            if dist > max_x_dist:
+                line_idx += 1
+                lines.append([])
+            lines[line_idx].append(line[k])
+
+        for box_group in lines:
+            text = ' '.join(
+                [x_sorted_boxes[idx].text for idx in box_group])
+            text_all.append(text)
+
+    return '\n'.join(text_all)
+
+
 def bordered_to_struct(bordered_table: Table) -> StructuredTable:
     v_lines = []
     for col in bordered_table.cols:
@@ -243,15 +322,7 @@ def cell_to_dict(cell: CellLinked):
             "height": cell.height,
             "width": cell.width,
         },
-        "text": " ".join(
-            [
-                field.text
-                for field in sorted(
-                    cell.text_boxes,
-                    key=lambda x: (x.bbox.top_left_y, x.bbox.top_left_x),
-                )
-            ]
-        ),
+        "text": merge_cell_content(cell.text_boxes),
     }
 
 
@@ -347,7 +418,7 @@ class PageProcessor:
     ) -> float:
         confidences = [0.0]
         for header in inf_headers:
-            if cell.box_is_inside_another(header):
+            if cell.box_is_inside_another(header, 0.4):
                 confidences.append(header.confidence)
         return max(confidences)
 
@@ -374,6 +445,22 @@ class PageProcessor:
             return len(headers) > (len(series) - empty_cells_num) / 2
         # return len(headers) > (len(series) / 5) if len(series) > thresh else len(headers) > (len(series) / 2)
         return len(headers) > (len(series) / 2)
+
+    @staticmethod
+    def is_num(value):
+        try:
+            float(value)
+            return True
+        except ValueError:
+            res = re.findall('[0-9]+', value)
+            if res:
+                len_numbers = len("".join(res))
+                alphabetical = re.findall('[a-zA-Z_]+', value)
+                if alphabetical:
+                    return False
+                if len_numbers > len(value) / 2:
+                    return True
+            return False
 
     def create_header(
         self,
@@ -407,9 +494,41 @@ class PageProcessor:
             header = []
 
         if len(header) > 0.75 * len(series):
-            with open("cases75.txt", "a") as f:
-                f.write(str(series) + "\n")
             header = []
+
+        if header_limit > 1:
+            contents = [" ".join([merge_cell_content(cell.text_boxes) for cell in line]) for line in series]
+            l_dists = []
+            last = contents[0]
+            for line in contents[1:header_limit]:
+                dist = levenshtein_distance(line, last)
+                l_dists.append(dist)
+                last = line
+            index_max_lev = np.argmax(l_dists) +1
+
+            num_count = [len([val for val in line if self.is_num(merge_cell_content(val.text_boxes))]) for line in series]
+            percentile_25 = np.percentile(num_count, 10)
+            idis = []
+            for idx, val in enumerate(num_count[:header_limit]):
+                if val < percentile_25.astype(float):
+                    idis.append(idx)
+            if not idis and not percentile_25:
+                # n_dst = []
+                # last = num_count[0]
+                # for val in num_count[1:header_limit]:
+                #     dst = val - last
+                #     n_dst.append(dst)
+                #     last = val
+                # index_max_num = np.argmax(n_dst) + 1
+                index_max_num = index_max_lev
+            else:
+                index_max_num = max(idis)+1
+
+            if not header:
+                header = series[:index_max_num]
+
+            if idis and percentile_25:
+                header = series[:index_max_num]
 
         return header
 
@@ -425,8 +544,6 @@ class PageProcessor:
         image_shape: Tuple[int, int],
         image_path: Path,
     ) -> StructuredTable:
-        merged_t_f = merge_closest_text_fields(not_matched_text)
-
         for cell in inf_table.tags:
             if cell.text_boxes:
                 cell.top_left_x = max(cell.top_left_x, min(
@@ -589,6 +706,7 @@ class PageProcessor:
             for table in page.tables:
                 actualize_text(table, image_path_400, img.shape[:2])
 
+            rematch_text(page.tables, text_fields, image_path_400, img.shape[:2])
             # TODO: Headers should be created only once
             cell_header_scores = []
             for table in page.tables:
@@ -600,10 +718,7 @@ class PageProcessor:
                 img,
                 cell_header_scores,
                 output_path / "cells_header" / f"{page.page_num}.png",
-            )
-
-            rematch_text(page.tables, text_fields, image_path_400, img.shape[:2])
-
+                )
             tables_with_header = []
             for table in page.tables:
                 header_rows = self.create_header(table.rows, headers, 5)
@@ -616,6 +731,7 @@ class PageProcessor:
                 # TODO: Cells should be actualized only once
                 table_with_header.actualize_header_with_cols(header_cols)
                 tables_with_header.append(table_with_header)
+
             page.tables = tables_with_header
 
             self.visualizer.draw_object_and_save(
@@ -631,14 +747,17 @@ class PageProcessor:
                 output_path.joinpath("tables").joinpath(image_path.name),
             )
         logger.info("Start text extraction")
+        img_400 = cv2.imread(str(image_path_400.absolute()))
+        x_scale = img_400.shape[1] / img.shape[1]
+        y_scale = img_400.shape[0] / img.shape[0]
         with TextExtractor(
-            str(image_path.absolute()), seg_mode=PSM.SPARSE_TEXT
+            str(image_path_400.absolute()), seg_mode=PSM.SPARSE_TEXT
         ) as extractor:
             text_borders = [1]
             for table in page.tables:
                 _, y, _, y2 = table.bbox.box
-                text_borders.extend([y, y2])
-            text_borders.append(img.shape[0])
+                text_borders.extend([int(y * y_scale), int(y2 * y_scale)])
+            text_borders.append(img_400.shape[0])
             text_candidate_boxes: List[BorderBox] = []
             for i in range(len(text_borders) // 2):
                 if text_borders[i * 2 + 1] - text_borders[i * 2] > 3:
@@ -646,7 +765,7 @@ class PageProcessor:
                         BorderBox(
                             top_left_x=1,
                             top_left_y=text_borders[i * 2],
-                            bottom_right_x=img.shape[1],
+                            bottom_right_x=img_400.shape[1],
                             bottom_right_y=text_borders[i * 2 + 1],
                         )
                     )
@@ -654,8 +773,14 @@ class PageProcessor:
                 text, _ = extractor.extract(
                     box.top_left_x, box.top_left_y, box.width, box.height
                 )
+                bbox = BorderBox(
+                    int(box.top_left_x / x_scale),
+                    int(box.top_left_y / y_scale),
+                    int(box.bottom_right_x / x_scale),
+                    int(box.bottom_right_y / y_scale)
+                )
                 if text:
-                    page.text.append(TextField(box, text))
+                    page.text.append(TextField(bbox, text))
         logger.info("End text extraction")
         page_dict = page_to_dict(page)
         if self.visualizer.should_visualize:

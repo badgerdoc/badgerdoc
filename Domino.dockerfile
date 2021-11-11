@@ -25,7 +25,7 @@ RUN poetry config virtualenvs.create false && \
     && poetry install --no-interaction \
     && rm -rf poetry.lock pyproject.toml poetry.lock mmcv/
 
-RUN pip install 'git+https://github.com/open-mmlab/mmdetection.git@v2.7.0'
+RUN pip install 'git+https://github.com/SwinTransformer/Swin-Transformer-Object-Detection.git'
 
 RUN python -m nltk.downloader stopwords && \
     python -m nltk.downloader words && \
@@ -33,9 +33,9 @@ RUN python -m nltk.downloader stopwords && \
     python -m nltk.downloader wordnet
 
 RUN mkdir /models && \
-    gdown "https://drive.google.com/uc?id=1YmO5O8kBPI9XZWASTWqP1Qh4skqQu7US" -O /models/3_cls_w18_e30.pth
+    gdown "https://drive.google.com/uc?id=1SfM5_z7xsxxz1lRWFJufX2zOICmPQUfJ" -O /models/swin.pth
 
-ENV CASCADE_MODEL_PATH="/models/3_cls_w18_e30.pth"
+ENV CASCADE_MODEL_PATH="/models/swin.pth"
 
 COPY . /table-extractor
 ENV PYTHONUNBUFFERED=1

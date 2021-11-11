@@ -15,6 +15,7 @@ from openpyxl.styles import PatternFill
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 from sklearn.cluster import DBSCAN
+from Levenshtein import distance as levenshtein_distance
 
 from table_extractor.bordered_service.models import Page
 from table_extractor.headers.header_utils import HeaderChecker
@@ -154,6 +155,14 @@ def analyse(series: List[CellLinked]):
     return len(headers) > (len(series) / 2)
 
 
+def is_num(value):
+    try:
+        float(value)
+        return True
+    except ValueError:
+        return False
+
+
 def create_header(
     series: List[List[CellLinked]], header_limit: int
 ):
@@ -182,6 +191,40 @@ def create_header(
 
     if len(header) > 0.65 * len(series):
         header = []
+
+    if header_limit > 1:
+        contents = [" ".join([cell.text_boxes[0].text for cell in line]) for line in series]
+        l_dists = []
+        last = contents[0]
+        for line in contents[1:header_limit]:
+            dist = levenshtein_distance(line, last)
+            l_dists.append(dist)
+            last = line
+        index_max_lev = np.argmax(l_dists) + 1
+
+        num_count = [len([val for val in line if is_num(val.text_boxes[0].text)]) for line in series]
+        percentile_25 = np.percentile(num_count, 10)
+        idis = []
+        for idx, val in enumerate(num_count[:header_limit]):
+            if val < percentile_25.astype(float):
+                idis.append(idx)
+        if not idis and not percentile_25:
+            # n_dst = []
+            # last = num_count[0]
+            # for val in num_count[1:header_limit]:
+            #     dst = val - last
+            #     n_dst.append(dst)
+            #     last = val
+            # index_max_num = np.argmax(n_dst) + 1
+            index_max_num = index_max_lev
+        else:
+            index_max_num = max(idis) + 1
+
+        if not header:
+            header = series[:index_max_num]
+
+        if idis and percentile_25:
+            header = series[:index_max_num]
 
     return header
 
