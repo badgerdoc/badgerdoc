@@ -1,5 +1,7 @@
 import json
 import logging
+import re
+from functools import reduce
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Union
 
@@ -450,6 +452,14 @@ class PageProcessor:
             float(value)
             return True
         except ValueError:
+            res = re.findall('[0-9]+', value)
+            if res:
+                len_numbers = len("".join(res))
+                alphabetical = re.findall('[a-zA-Z_]+', value)
+                if alphabetical:
+                    return False
+                if len_numbers > len(value) / 2:
+                    return True
             return False
 
     def create_header(
