@@ -442,7 +442,7 @@ def clust_tables(worksheet: Worksheet, last_row: int, last_col: int):
 
 
 def extract_cell_value(ws_cell: WsCell):
-    if not ws_cell or not ws_cell.value:
+    if not ws_cell or ws_cell.value is None:
         return ""
     if ws_cell.data_type == "n":
         formats = NUMBER_FORMAT.findall(ws_cell.number_format)

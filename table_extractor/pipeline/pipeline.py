@@ -504,7 +504,10 @@ class PageProcessor:
                 dist = levenshtein_distance(line, last)
                 l_dists.append(dist)
                 last = line
-            index_max_lev = np.argmax(l_dists) +1
+            if l_dists:
+                index_max_lev = np.argmax(l_dists) + 1
+            else:
+                index_max_lev = 0
 
             num_count = [len([val for val in line if self.is_num(merge_cell_content(val.text_boxes))]) for line in series]
             percentile_25 = np.percentile(num_count, 10)
@@ -512,7 +515,8 @@ class PageProcessor:
             for idx, val in enumerate(num_count[:header_limit]):
                 if val < percentile_25.astype(float):
                     idis.append(idx)
-            if not idis and not percentile_25:
+            if not idis and not percentile_25\
+                    or not idis:
                 # n_dst = []
                 # last = num_count[0]
                 # for val in num_count[1:header_limit]:
